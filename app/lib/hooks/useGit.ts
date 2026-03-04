@@ -103,8 +103,8 @@ export function useGit() {
       const auth = lookupSavedPassword(url);
 
       if (githubToken) {
-        // Use GitHub PAT as Bearer token
-        headers.Authorization = `Bearer ${githubToken}`;
+        // GitHub's git HTTP protocol requires Basic auth with x-access-token as username
+        headers.Authorization = `Basic ${btoa(`x-access-token:${githubToken}`)}`;
       } else if (auth) {
         headers.Authorization = `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`;
       }
