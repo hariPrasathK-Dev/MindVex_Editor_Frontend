@@ -32,7 +32,7 @@ export const checkConnection = async (): Promise<ConnectionStatus> => {
       try {
         const start = performance.now();
         const response = await fetch(endpoint, {
-          method: 'HEAD',
+          method: 'GET',
           cache: 'no-cache',
         });
         const end = performance.now();
