@@ -42,12 +42,8 @@ export function initAuth() {
       localStorage.setItem('auth_token', urlToken);
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // Use the configured backend URL from environment, removing trailing '/api' if present
-      let API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
-      if (API_BASE_URL.endsWith('/api')) {
-        API_BASE_URL = API_BASE_URL.slice(0, -4);
-      }
-      API_BASE_URL = API_BASE_URL || '/api';
+      // Use the configured backend URL from environment
+      const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080/api';
       fetch(`${API_BASE_URL}/users/me`, {
         headers: { Authorization: `Bearer ${urlToken}` },
       })
@@ -68,13 +64,9 @@ export function initAuth() {
     if (token) {
       /*
        * Always validate the stored token against the backend
-       * Use the configured backend URL from environment, removing trailing '/api' if present
+       * Use the configured backend URL from environment
        */
-      let API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
-      if (API_BASE_URL.endsWith('/api')) {
-        API_BASE_URL = API_BASE_URL.slice(0, -4);
-      }
-      API_BASE_URL = API_BASE_URL || '/api';
+      const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080/api';
       fetch(`${API_BASE_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })

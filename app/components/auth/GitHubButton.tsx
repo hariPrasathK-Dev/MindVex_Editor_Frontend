@@ -1,11 +1,7 @@
 import { useState } from 'react';
 
-// Use the configured backend URL from environment, removing trailing '/api' if present
-let API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
-if (API_BASE_URL.endsWith('/api')) {
-  API_BASE_URL = API_BASE_URL.slice(0, -4);
-}
-API_BASE_URL = API_BASE_URL || 'http://localhost:8080';
+// Use the configured backend URL from environment
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080/api';
 
 export function GitHubButton() {
   const [isLoading, setIsLoading] = useState(false);

@@ -32,7 +32,9 @@ export function useGit() {
   const [ready, setReady] = useState(false);
   const [webcontainer, setWebcontainer] = useState<WebContainer>();
   const [fs, setFs] = useState<PromiseFsClient>();
+  const [githubToken, setGithubToken] = useState<string | null>(null);
   const fileData = useRef<Record<string, { data: any; encoding?: string }>>({});
+
   useEffect(() => {
     webcontainerPromise.then((container) => {
       fileData.current = {};
@@ -40,6 +42,35 @@ export function useGit() {
       setFs(getFs(container, fileData));
       setReady(true);
     });
+  }, []);
+
+  // Fetch GitHub token if user is authenticated
+  useEffect(() => {
+    const fetchGitHubToken = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080/api';
+        const token = localStorage.getItem('auth_token');
+
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/users/me/github-connection`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.connected && data.accessToken) {
+            setGithubToken(data.accessToken);
+          }
+        }
+      } catch (error) {
+        console.log('GitHub token not available:', error);
+      }
+    };
+
+    fetchGitHubToken();
   }, []);
 
   const gitClone = useCallback(
@@ -68,9 +99,13 @@ export function useGit() {
         'User-Agent': 'mindvex',
       };
 
+      // Try to use GitHub token first, fallback to saved credentials
       const auth = lookupSavedPassword(url);
 
-      if (auth) {
+      if (githubToken) {
+        // Use GitHub PAT as Bearer token
+        headers.Authorization = `Bearer ${githubToken}`;
+      } else if (auth) {
         headers.Authorization = `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`;
       }
 
@@ -95,6 +130,16 @@ export function useGit() {
             console.log('Git clone progress:', event);
           },
           onAuth: (baseUrl) => {
+            // First, try GitHub token if available
+            if (githubToken) {
+              console.log('Using GitHub OAuth token for authentication');
+              return {
+                username: 'x-access-token',
+                password: githubToken,
+              };
+            }
+
+            // Second, check for saved credentials
             let auth = lookupSavedPassword(baseUrl);
 
             if (auth) {
@@ -102,6 +147,7 @@ export function useGit() {
               return auth;
             }
 
+            // Last resort: prompt user for credentials
             console.log('Repository requires authentication:', baseUrl);
 
             if (confirm('This repository requires authentication. Would you like to enter your GitHub credentials?')) {
@@ -175,7 +221,7 @@ export function useGit() {
         }
       }
     },
-    [webcontainer, fs, ready],
+    [webcontainer, fs, ready, githubToken],
   );
 
   return { ready, gitClone };

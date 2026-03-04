@@ -4,12 +4,8 @@
  * https://mindvex-backend.onrender.com/api in prod).
  */
 
-// Use the configured backend URL from environment, removing trailing '/api' if present
-let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
-if (BACKEND_URL.endsWith('/api')) {
-  BACKEND_URL = BACKEND_URL.slice(0, -4);
-}
-BACKEND_URL = BACKEND_URL || '/api';
+// Use the configured backend URL from environment
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080/api';
 console.log('[Debug] PROXY Backend URL:', BACKEND_URL); // Debug log to verify URL in browser console
 
 function getAuthHeaders(): Record<string, string> {
