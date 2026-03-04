@@ -60,7 +60,7 @@ export function useGit() {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as { connected?: boolean; accessToken?: string };
           if (data.connected && data.accessToken) {
             setGithubToken(data.accessToken);
           }
