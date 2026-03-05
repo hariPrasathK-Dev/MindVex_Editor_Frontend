@@ -20,7 +20,7 @@ export const ExpoQrModal: React.FC<ExpoQrModalProps> = ({ open, onClose }) => {
         onClose={onClose}
       >
         <div className="border !border-mindvex-elements-borderColor flex flex-col gap-5 justify-center items-center p-6 bg-mindvex-elements-background-depth-2 rounded-md">
-          <div className="i-mindvex:expo-brand h-10 w-full invert dark:invert-none"></div>
+          <div className="i-ph-device-mobile h-10 w-10 text-accent-500"></div>
           <DialogTitle className="text-mindvex-elements-textTertiary text-lg font-semibold leading-6">
             Preview on your own mobile device
           </DialogTitle>

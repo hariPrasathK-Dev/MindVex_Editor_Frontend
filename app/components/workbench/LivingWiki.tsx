@@ -271,9 +271,7 @@ function DiagramBlock({ lines }: { lines: string[] }) {
       <div className="px-4 py-2 bg-gray-900/50 border-b border-gray-700">
         <div className="flex items-center gap-2">
           <Building2 className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-            Architecture Diagram
-          </span>
+          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Architecture Diagram</span>
         </div>
       </div>
       <div className="p-5">
@@ -816,8 +814,8 @@ function FileContent({
   if (filename === 'tree.json') return <TreeVisualizer content={content} />;
   if (filename === 'tree.txt')
     return (
-      <div className="bg-[#0a0a0a] rounded-lg border border-gray-700 p-5\">
-        <pre className=\"text-xs font-mono text-gray-300 whitespace-pre leading-relaxed\">{content}</pre>
+      <div className="bg-[#0a0a0a] rounded-lg border border-gray-700 p-5">
+        <pre className="text-xs font-mono text-gray-300 whitespace-pre leading-relaxed">{content}</pre>
       </div>
     );
   if (filename === 'documentation-health.md') return <HealthReport content={content} onNavigate={onNavigate} />;
