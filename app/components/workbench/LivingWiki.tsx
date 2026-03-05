@@ -98,6 +98,46 @@ function DashboardView({ docFiles, onNavigate, repoUrl, providerInfo }: {
 
   const availableDocs = KNOWN_TABS.filter(t => t.key !== '__dashboard__' && docFiles[t.key]);
 
+  // Group files by extension
+  const markdownDocs = availableDocs.filter(t => t.key.endsWith('.md'));
+  const jsonDocs = availableDocs.filter(t => t.key.endsWith('.json'));
+  const otherDocs = availableDocs.filter(t => !t.key.endsWith('.md') && !t.key.endsWith('.json'));
+
+  const renderFileGrid = (docs: TabConfig[], title: string, subtitle: string) => {
+    if (docs.length === 0) return null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <h4 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{title}</h4>
+          <div className="h-px flex-1 bg-white/5" />
+          <span className="text-[9px] text-gray-700 font-mono">{docs.length} files</span>
+        </div>
+        <p className="text-[10px] text-gray-600 -mt-1 mb-2">{subtitle}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {docs.map(tab => (
+            <button key={tab.key} onClick={() => onNavigate(tab.key)}
+              className="group flex items-start gap-4 p-4 rounded-xl bg-[#0f0f0f] border border-white/5 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02] transition-all text-left relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/[0.01] group-hover:bg-emerald-500/[0.03] transition-colors rounded-bl-[100px]" />
+              <div className="w-10 h-10 rounded-lg bg-black border border-white/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                {FILE_ICONS[tab.key]}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-gray-200 group-hover:text-emerald-400 transition-colors">{tab.key}</h4>
+                <p className="text-[11px] text-gray-600 line-clamp-1 mt-0.5">{FILE_DESCRIPTIONS[tab.key]}</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-[9px] font-mono text-gray-700">{docFiles[tab.key]?.length.toLocaleString()} chars</span>
+                  <div className="w-1 h-1 rounded-full bg-gray-800" />
+                  <span className="text-[9px] text-gray-700 uppercase">{tab.group}</span>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-gray-800 group-hover:text-emerald-500 mt-3 transition-colors shrink-0" />
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Hero Banner */}
@@ -145,34 +185,17 @@ function DashboardView({ docFiles, onNavigate, repoUrl, providerInfo }: {
         </div>
       </div>
 
-      {/* Files Grid */}
-      <div>
-        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+      {/* Files Grid - Grouped by Type */}
+      <div className="space-y-6">
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
           Generated Files
           <div className="h-px flex-1 bg-white/5" />
-          <span className="text-[10px] font-mono">{fileKeys.length} items</span>
+          <span className="text-[10px] font-mono">{fileKeys.length} total</span>
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-8">
-          {availableDocs.map(tab => (
-            <button key={tab.key} onClick={() => onNavigate(tab.key)}
-              className="group flex items-start gap-4 p-4 rounded-xl bg-[#0f0f0f] border border-white/5 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02] transition-all text-left relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/[0.01] group-hover:bg-emerald-500/[0.03] transition-colors rounded-bl-[100px]" />
-              <div className="w-10 h-10 rounded-lg bg-black border border-white/5 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                {FILE_ICONS[tab.key]}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-bold text-gray-200 group-hover:text-emerald-400 transition-colors">{tab.key}</h4>
-                <p className="text-[11px] text-gray-600 line-clamp-1 mt-0.5">{FILE_DESCRIPTIONS[tab.key]}</p>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-[9px] font-mono text-gray-700">{docFiles[tab.key]?.length.toLocaleString()} chars</span>
-                  <div className="w-1 h-1 rounded-full bg-gray-800" />
-                  <span className="text-[9px] text-gray-700 uppercase">{tab.group}</span>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-gray-800 group-hover:text-emerald-500 mt-3 transition-colors shrink-0" />
-            </button>
-          ))}
-        </div>
+
+        {renderFileGrid(markdownDocs, 'Markdown Documentation', 'Human-readable documentation files')}
+        {renderFileGrid(jsonDocs, 'JSON Data Files', 'Structured data and metadata files')}
+        {renderFileGrid(otherDocs, 'Other Files', 'Additional documentation files')}
       </div>
     </div>
   );
