@@ -148,7 +148,7 @@ export function QuickActions() {
 
   const handleRefreshGraph = () => {
     if (repoUrl && !isLoading) {
-      refreshGraph(repoUrl, true);  // force=true to bypass cache and trigger rebuild
+      refreshGraph(repoUrl, true); // force=true to bypass cache and trigger rebuild
     }
   };
 

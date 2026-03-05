@@ -23,7 +23,21 @@ import {
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { Badge } from '~/components/ui/Badge';
-import { Brain, Zap, Info, RefreshCw, Download, Maximize, Box, Layout, Search, Filter, BarChart3, Eye, EyeOff } from 'lucide-react';
+import {
+  Brain,
+  Zap,
+  Info,
+  RefreshCw,
+  Download,
+  Maximize,
+  Box,
+  Layout,
+  Search,
+  Filter,
+  BarChart3,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Dynamic imports for force graphs to avoid SSR issues
@@ -286,18 +300,16 @@ export function KnowledgeGraphPage({ onBack }: Props) {
     // Semantic filter: only show nodes matching semantic search
     if (semanticResults.length > 0) {
       const semanticSet = new Set(semanticResults);
-      filteredNodes = filteredNodes.filter(n => semanticSet.has(n.id));
+      filteredNodes = filteredNodes.filter((n) => semanticSet.has(n.id));
       filteredLinks = filteredLinks.filter((l: any) => semanticSet.has(l.source) && semanticSet.has(l.target));
     }
 
     // Complexity filter: hide nodes below threshold
     if (complexityFilter > 0) {
       const complexSet = new Set(
-        filteredNodes
-          .filter(n => ((n as any).val || 0) >= complexityFilter)
-          .map(n => n.id)
+        filteredNodes.filter((n) => ((n as any).val || 0) >= complexityFilter).map((n) => n.id),
       );
-      filteredNodes = filteredNodes.filter(n => complexSet.has(n.id));
+      filteredNodes = filteredNodes.filter((n) => complexSet.has(n.id));
       filteredLinks = filteredLinks.filter((l: any) => complexSet.has(l.source) && complexSet.has(l.target));
     }
 
@@ -306,9 +318,7 @@ export function KnowledgeGraphPage({ onBack }: Props) {
       // Find cycle information from graphData if available
       const cycleEdges = data.edges?.filter((e: any) => e.data.cycle) || [];
       filteredLinks = filteredLinks.map((l: any) => {
-        const isCycle = cycleEdges.some((e: any) => 
-          e.data.source === l.source && e.data.target === l.target
-        );
+        const isCycle = cycleEdges.some((e: any) => e.data.source === l.source && e.data.target === l.target);
         return {
           ...l,
           color: isCycle ? '#ef4444' : undefined, // Red for cycles
@@ -658,7 +668,7 @@ export function KnowledgeGraphPage({ onBack }: Props) {
     try {
       const result = await semanticFilter(repoUrl, semanticQuery, 20);
       setSemanticResults(result.matchingNodes);
-      
+
       if (result.error) {
         toast.warning(`Semantic search: ${result.error}`);
       } else {
@@ -804,7 +814,8 @@ export function KnowledgeGraphPage({ onBack }: Props) {
                 type="text"
                 value={semanticQuery}
                 onChange={(e) => setSemanticQuery(e.target.value)}
-                onKey Press={(e) => e.key === 'Enter' && handleSemanticSearch()}
+                onKey
+                Press={(e) => e.key === 'Enter' && handleSemanticSearch()}
                 placeholder="e.g., authentication logic..."
                 className="flex-1 px-3 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
@@ -813,9 +824,7 @@ export function KnowledgeGraphPage({ onBack }: Props) {
               </Button>
             </div>
             {semanticResults.length > 0 && (
-              <div className="text-xs text-emerald-400 mt-1">
-                {semanticResults.length} nodes match semantic query
-              </div>
+              <div className="text-xs text-emerald-400 mt-1">{semanticResults.length} nodes match semantic query</div>
             )}
           </div>
 
@@ -841,12 +850,7 @@ export function KnowledgeGraphPage({ onBack }: Props) {
 
           {/* Cycles Toggle */}
           <div className="flex items-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCycles(!showCycles)}
-              className="w-full"
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowCycles(!showCycles)} className="w-full">
               {showCycles ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
               {showCycles ? 'Hide' : 'Show'} Cycles
             </Button>
@@ -895,7 +899,10 @@ export function KnowledgeGraphPage({ onBack }: Props) {
               <div className="text-xs text-gray-400 mb-2">Most Connected Nodes (Hubs)</div>
               <div className="space-y-1">
                 {graphStats.hubs.slice(0, 5).map((hub: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-xs bg-gray-800/50 px-3 py-1.5 rounded">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-xs bg-gray-800/50 px-3 py-1.5 rounded"
+                  >
                     <span className="text-white truncate flex-1">{hub.filePath}</span>
                     <Badge variant="outline" size="sm" className="ml-2">
                       {hub.complexity}

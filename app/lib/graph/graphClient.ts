@@ -267,7 +267,10 @@ export async function getGraphStats(repoUrl: string): Promise<{
   totalEdges: number;
   languages: Record<string, number>;
   hubs: Array<{ filePath: string; inDegree: number; outDegree: number; complexity: number; language: string }>;
-  nodeStats: Record<string, { filePath: string; inDegree: number; outDegree: number; complexity: number; language: string }>;
+  nodeStats: Record<
+    string,
+    { filePath: string; inDegree: number; outDegree: number; complexity: number; language: string }
+  >;
   avgComplexity: number;
 }> {
   return request(`/api/graph/stats?repoUrl=${encodeURIComponent(repoUrl)}`);
