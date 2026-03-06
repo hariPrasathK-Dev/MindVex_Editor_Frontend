@@ -280,7 +280,7 @@ export async function semanticFilter(
 }> {
   const body = { query, topK };
   console.log('[semanticFilter] Request:', { repoUrl, body });
-  
+
   return request(`/api/graph/semantic-filter?repoUrl=${encodeURIComponent(repoUrl)}`, 'POST', body);
 }
 

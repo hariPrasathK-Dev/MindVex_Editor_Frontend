@@ -128,13 +128,13 @@ export function RealTimeGraphPage({ onBack }: Props) {
         const dirent = filesMap[filePath];
 
         changes++;
-        
+
         // Track this node as modified for visual highlighting
-        setModifiedNodes(prev => new Set([...prev, filePath]));
-        
+        setModifiedNodes((prev) => new Set([...prev, filePath]));
+
         // Clear highlight after 3 seconds
         setTimeout(() => {
-          setModifiedNodes(prev => {
+          setModifiedNodes((prev) => {
             const next = new Set(prev);
             next.delete(filePath);
             return next;
@@ -177,33 +177,42 @@ export function RealTimeGraphPage({ onBack }: Props) {
                   });
                 }
               });
-              
+
               const newEdgesCount = filteredEdges.length - edgesBefore;
               edgesAdded += newEdgesCount;
 
               // Log change
               if (newEdgesCount > 0 || edgesRemoved > 0) {
-                setChangeHistory(prev => [{
-                  timestamp: new Date(),
-                  type: newEdgesCount > 0 ? 'edge_added' : 'edge_removed',
-                  description: `${filePath}: ${newEdgesCount} edges added, ${edgesRemoved} edges removed`
-                }, ...prev].slice(0, 50)); // Keep last 50 changes
+                setChangeHistory((prev) =>
+                  [
+                    {
+                      timestamp: new Date(),
+                      type: newEdgesCount > 0 ? 'edge_added' : 'edge_removed',
+                      description: `${filePath}: ${newEdgesCount} edges added, ${edgesRemoved} edges removed`,
+                    },
+                    ...prev,
+                  ].slice(0, 50),
+                ); // Keep last 50 changes
               }
 
               setLocalGraphData({
                 ...localGraphData,
                 edges: filteredEdges,
               });
-              
+
               // Clear "new" flag after 3 seconds
               setTimeout(() => {
-                setLocalGraphData(prev => prev ? {
-                  ...prev,
-                  edges: prev.edges.map(e => ({
-                    ...e,
-                    data: { ...e.data, isNew: false }
-                  }))
-                } : prev);
+                setLocalGraphData((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        edges: prev.edges.map((e) => ({
+                          ...e,
+                          data: { ...e.data, isNew: false },
+                        })),
+                      }
+                    : prev,
+                );
               }, 3000);
             }
           } catch (e) {
@@ -222,12 +231,17 @@ export function RealTimeGraphPage({ onBack }: Props) {
           edgesAdded: prev.edgesAdded + edgesAdded,
           nodesAdded: prev.nodesAdded + nodesAdded,
         }));
-        
-        setChangeHistory(prev => [{
-          timestamp: new Date(),
-          type: 'sync',
-          description: `Detected ${changes} file changes`
-        }, ...prev].slice(0, 50));
+
+        setChangeHistory((prev) =>
+          [
+            {
+              timestamp: new Date(),
+              type: 'sync',
+              description: `Detected ${changes} file changes`,
+            },
+            ...prev,
+          ].slice(0, 50),
+        );
 
         if (parseMode.type === 'llm-enhanced') {
           // Trigger AI analysis for impact
@@ -255,7 +269,7 @@ export function RealTimeGraphPage({ onBack }: Props) {
           {
             selector: 'node',
             style: {
-              'background-color': (ele) => modifiedNodes.has(ele.id()) ? '#22c55e' : '#0ea5e9', // green if modified
+              'background-color': (ele) => (modifiedNodes.has(ele.id()) ? '#22c55e' : '#0ea5e9'), // green if modified
               label: 'data(label)',
               color: '#fff',
               'text-valign': 'center',
@@ -268,9 +282,9 @@ export function RealTimeGraphPage({ onBack }: Props) {
           {
             selector: 'edge',
             style: {
-              width: (ele) => ele.data('isNew') ? 3 : 2,
-              'line-color': (ele) => ele.data('isNew') ? '#22c55e' : '#334155', // green if new
-              'target-arrow-color': (ele) => ele.data('isNew') ? '#22c55e' : '#334155',
+              width: (ele) => (ele.data('isNew') ? 3 : 2),
+              'line-color': (ele) => (ele.data('isNew') ? '#22c55e' : '#334155'), // green if new
+              'target-arrow-color': (ele) => (ele.data('isNew') ? '#22c55e' : '#334155'),
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'transition-property': 'line-color, width',
@@ -381,9 +395,9 @@ export function RealTimeGraphPage({ onBack }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button 
-            variant={isPaused ? 'default' : 'outline'} 
-            size="sm" 
+          <Button
+            variant={isPaused ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setIsPaused(!isPaused)}
             title={isPaused ? 'Resume monitoring' : 'Pause monitoring'}
           >
@@ -415,11 +429,7 @@ export function RealTimeGraphPage({ onBack }: Props) {
               </>
             )}
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowHistory(!showHistory)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowHistory(!showHistory)}>
             <History className="h-3 w-3 mr-1" />
             History
           </Button>
@@ -466,7 +476,7 @@ export function RealTimeGraphPage({ onBack }: Props) {
             </div>
           </div>
         </div>
-        
+
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
           <div className="flex justify-between px-2 py-1 bg-gray-800/50 rounded">
             <span className="text-gray-400">Nodes Added:</span>
@@ -531,9 +541,7 @@ export function RealTimeGraphPage({ onBack }: Props) {
                   </div>
                   <div className="flex-1">
                     <div className="text-gray-300">{entry.description}</div>
-                    <div className="text-gray-500 text-[10px] mt-0.5">
-                      {entry.timestamp.toLocaleTimeString()}
-                    </div>
+                    <div className="text-gray-500 text-[10px] mt-0.5">{entry.timestamp.toLocaleTimeString()}</div>
                   </div>
                 </div>
               ))
