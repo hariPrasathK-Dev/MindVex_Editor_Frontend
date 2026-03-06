@@ -32,6 +32,14 @@ import {
   X,
   Info,
   LayoutDashboard,
+  Users,
+  Monitor,
+  Smartphone,
+  Database,
+  Server,
+  Cloud,
+  Mail,
+  Bell,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ForceGraph2D from 'react-force-graph-2d';
@@ -50,6 +58,30 @@ interface TreeNode {
   name: string;
   type?: string;
   children?: TreeNode[];
+}
+
+// Layered Architecture Types
+interface ArchComponent {
+  id: string;
+  label: string;
+  type: 'users' | 'device' | 'service' | 'database' | 'resource' | 'middleware';
+  sublabel?: string;
+  icon?: string;
+}
+interface ArchLayer {
+  id: string;
+  title: string;
+  components: ArchComponent[];
+  color?: string;
+}
+interface ArchConnection {
+  from: string;
+  to: string;
+  style?: 'solid' | 'dashed';
+}
+interface LayeredArchData {
+  layers: ArchLayer[];
+  connections: ArchConnection[];
 }
 
 // ─── Tab Registry ─────────────────────────────────────────────────────────────
@@ -705,12 +737,184 @@ function TreeVisualizer({ content }: { content: string }) {
   );
 }
 
+// ─── Layered Architecture Diagram ─────────────────────────────────────────────
+
+function LayeredArchitectureDiagram({ data }: { data: LayeredArchData }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [componentPositions, setComponentPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
+
+  // Component icon mapper
+  const getComponentIcon = (type: string) => {
+    switch (type) {
+      case 'users':
+        return <Users className="h-6 w-6" />;
+      case 'device':
+        return <Monitor className="h-6 w-6" />;
+      case 'service':
+        return <Server className="h-6 w-6" />;
+      case 'database':
+        return <Database className="h-6 w-6" />;
+      case 'resource':
+        return <Cloud className="h-6 w-6" />;
+      case 'middleware':
+        return <Mail className="h-6 w-6" />;
+      default:
+        return <Package className="h-6 w-6" />;
+    }
+  };
+
+  // Layer color mapper
+  const getLayerColor = (layerId: string, customColor?: string) => {
+    if (customColor) return customColor;
+    const colors: Record<string, string> = {
+      channels: 'bg-gray-100',
+      'user-experience': 'bg-cyan-50',
+      middleware: 'bg-amber-50',
+      backend: 'bg-purple-50',
+    };
+    return colors[layerId] || 'bg-gray-50';
+  };
+
+  const getLayerBorder = (layerId: string) => {
+    const borders: Record<string, string> = {
+      channels: 'border-gray-200',
+      'user-experience': 'border-cyan-200',
+      middleware: 'border-amber-200',
+      backend: 'border-purple-200',
+    };
+    return borders[layerId] || 'border-gray-200';
+  };
+
+  // Calculate positions
+  useEffect(() => {
+    const positions = new Map<string, { x: number; y: number }>();
+    const containerWidth = 1000;
+    const layerWidth = containerWidth / data.layers.length;
+
+    data.layers.forEach((layer, layerIdx) => {
+      const layerX = layerIdx * layerWidth + layerWidth / 2;
+      const componentHeight = 120;
+      const totalHeight = layer.components.length * componentHeight;
+      const startY = 100;
+
+      layer.components.forEach((comp, compIdx) => {
+        const y = startY + compIdx * componentHeight + 50;
+        positions.set(comp.id, { x: layerX, y });
+      });
+    });
+
+    setComponentPositions(positions);
+  }, [data]);
+
+  return (
+    <div className="relative w-full bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      {/* SVG for connections */}
+      <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
+          </marker>
+        </defs>
+        {data.connections.map((conn, idx) => {
+          const from = componentPositions.get(conn.from);
+          const to = componentPositions.get(conn.to);
+          if (!from || !to) return null;
+
+          return (
+            <line
+              key={idx}
+              x1={from.x + 100}
+              y1={from.y}
+              x2={to.x - 100}
+              y2={to.y}
+              stroke="#94a3b8"
+              strokeWidth="2"
+              strokeDasharray={conn.style === 'dashed' ? '5,5' : '0'}
+              markerEnd="url(#arrowhead)"
+            />
+          );
+        })}
+      </svg>
+
+      {/* Layers */}
+      <div className="relative flex min-h-[600px]" style={{ zIndex: 1 }}>
+        {data.layers.map((layer, layerIdx) => (
+          <div
+            key={layer.id}
+            className={`flex-1 ${getLayerColor(layer.id, layer.color)} ${getLayerBorder(layer.id)} border-r last:border-r-0 p-6 flex flex-col`}
+          >
+            {/* Layer Title */}
+            <div className="mb-8">
+              <h3 className="text-sm font-bold text-gray-800 text-center">{layer.title}</h3>
+            </div>
+
+            {/* Components */}
+            <div className="flex-1 flex flex-col justify-start items-center gap-6">
+              {layer.components.map((comp) => (
+                <div
+                  key={comp.id}
+                  className="bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-shadow px-4 py-3 min-w-[140px] max-w-[180px] w-full"
+                  style={{ position: 'relative', zIndex: 2 }}
+                >
+                  <div className="flex flex-col items-center text-center gap-2">
+                    {/* Icon */}
+                    <div
+                      className={`${
+                        comp.type === 'users'
+                          ? 'text-gray-700'
+                          : comp.type === 'service'
+                            ? 'text-teal-600'
+                            : comp.type === 'middleware'
+                              ? 'text-orange-600'
+                              : comp.type === 'resource'
+                                ? 'text-purple-600'
+                                : 'text-blue-600'
+                      }`}
+                    >
+                      {getComponentIcon(comp.type)}
+                    </div>
+                    {/* Label */}
+                    <div>
+                      <div className="text-xs font-semibold text-gray-800 leading-tight">{comp.label}</div>
+                      {comp.sublabel && <div className="text-[10px] text-gray-500 mt-1">{comp.sublabel}</div>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ArchitectureVisualizer({ content }: { content: string }) {
   let data: { nodes: any[]; links: any[] } = { nodes: [], links: [] };
+  let layeredData: LayeredArchData | null = null;
+  let isLayered = false;
+
   try {
     const raw = JSON.parse(content);
-    // Handle different possible formats
-    if (raw.graph) {
+
+    // Check if it's layered architecture format
+    if (raw.layers && Array.isArray(raw.layers)) {
+      layeredData = {
+        layers: raw.layers,
+        connections: Array.isArray(raw.connections) ? raw.connections : [],
+      };
+      isLayered = true;
+    }
+    // Handle different possible formats for force graph
+    else if (raw.graph) {
       // Format: { graph: { nodes: [], edges/links: [] } }
       data.nodes = Array.isArray(raw.graph.nodes) ? raw.graph.nodes : [];
       data.links = Array.isArray(raw.graph.links)
@@ -729,6 +933,12 @@ function ArchitectureVisualizer({ content }: { content: string }) {
 
   const fgRef = useRef<any>();
 
+  // Render layered diagram if format matches
+  if (isLayered && layeredData) {
+    return <LayeredArchitectureDiagram data={layeredData} />;
+  }
+
+  // Otherwise render force graph
   return (
     <div className="h-[500px] w-full bg-[#080808] rounded-2xl border border-white/5 overflow-hidden relative group">
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
