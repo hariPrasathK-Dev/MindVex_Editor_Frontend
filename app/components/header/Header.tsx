@@ -53,7 +53,7 @@ export function Header() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-lg hover:bg-mindvex-elements-item-backgroundHover transition-colors text-mindvex-elements-textSecondary hover:text-mindvex-elements-textPrimary"
+            className="p-2 rounded-lg hover:bg-mindvex-elements-item-backgroundHover transition-colors text-mindvex-elements-textSecondary hover:text-orange-400"
             title="Settings"
           >
             <Settings className="w-5 h-5" />

@@ -89,7 +89,7 @@ export function HistoryItem({
         <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-2">
           <input
             type="text"
-            className="flex-1 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-md px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-800 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+            className="flex-1 bg-mindvex-elements-background-depth-2 text-mindvex-elements-textPrimary rounded-md px-3 py-1.5 text-sm border border-mindvex-elements-borderColor focus:outline-none focus:ring-1 focus:ring-purple-500/50"
             autoFocus
             value={currentDescription}
             onChange={handleChange}

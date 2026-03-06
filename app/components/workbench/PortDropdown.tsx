@@ -49,7 +49,7 @@ export const PortDropdown = memo(
       <div className="relative z-port-dropdown" ref={dropdownRef}>
         {/* Display the active port if available, otherwise show the plug icon */}
         <button
-          className="flex items-center group-focus-within:text-mindvex-elements-preview-addressBar-text bg-white group-focus-within:bg-mindvex-elements-preview-addressBar-background dark:bg-mindvex-elements-preview-addressBar-backgroundHover rounded-full px-2 py-1 gap-1.5"
+          className="flex items-center group-focus-within:text-mindvex-elements-preview-addressBar-text bg-mindvex-elements-preview-addressBar-background group-focus-within:bg-mindvex-elements-preview-addressBar-background rounded-full px-2 py-1 gap-1.5"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         >
           <span className="i-ph:plug text-base"></span>

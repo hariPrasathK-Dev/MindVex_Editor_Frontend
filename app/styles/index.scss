@@ -15,6 +15,14 @@ body {
   color: var(--mindvex-elements-textPrimary);
 }
 
+/* Reset default button styles - prevents white backgrounds on icon buttons */
+button {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
 :root {
   --gradient-opacity: 0.8;
   --primary-color: rgba(255, 140, 0, var(--gradient-opacity));

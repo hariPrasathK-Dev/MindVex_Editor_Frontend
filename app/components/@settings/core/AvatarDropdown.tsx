@@ -20,7 +20,7 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="w-full h-full rounded-full flex items-center justify-center bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500">
+          <div className="w-full h-full rounded-full flex items-center justify-center bg-mindvex-elements-background-depth-2 text-mindvex-elements-textTertiary">
             <div className="i-ph:user w-6 h-6" />
           </div>
         </motion.button>
@@ -30,7 +30,7 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
         <DropdownMenu.Content
           className={classNames(
             'min-w-[240px] z-[250]',
-            'bg-white dark:bg-[#141414]',
+            'bg-mindvex-elements-background-depth-1',
             'rounded-lg shadow-lg',
             'border border-gray-200/50 dark:border-gray-800/50',
             'animate-in fade-in-0 zoom-in-95',
@@ -45,7 +45,7 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
               'border-b border-gray-200/50 dark:border-gray-800/50',
             )}
           >
-            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-mindvex-elements-background-depth-2 shadow-sm">
               <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 font-medium text-lg">
                 <div className="i-ph:user w-6 h-6" />
               </div>

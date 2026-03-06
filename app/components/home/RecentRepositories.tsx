@@ -144,7 +144,7 @@ export function RecentRepositories({ onClone, limit = 5, className }: RecentRepo
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

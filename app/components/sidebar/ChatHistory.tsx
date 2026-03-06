@@ -107,7 +107,7 @@ export function ChatHistory({
         <>
           {groupedChats.map(({ category, items }) => (
             <div key={category} className="mt-2 first:mt-0 space-y-1">
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-white dark:bg-gray-950 px-4 py-1">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-mindvex-elements-background-depth-1 px-4 py-1">
                 {category}
               </div>
               <div className="space-y-0.5 pr-1">

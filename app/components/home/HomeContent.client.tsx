@@ -102,7 +102,7 @@ function RepoRow({ repo, onOpen, onRemove, isOpening }: RepoRowProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
         {isOpening ? (
           <Loader2 className="w-4 h-4 animate-spin text-mindvex-elements-textSecondary" />
         ) : (

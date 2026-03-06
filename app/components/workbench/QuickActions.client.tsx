@@ -208,7 +208,7 @@ export function QuickActions() {
               <button
                 onClick={handleRefreshGraph}
                 disabled={!repoUrl || isLoading}
-                className="text-gray-400 hover:text-white p-1 rounded transition-colors disabled:opacity-50"
+                className="text-gray-300 hover:text-orange-400 p-1 rounded transition-colors disabled:opacity-50"
                 title="Force refresh graph data"
               >
                 <div className={`i-ph:arrows-clockwise ${isLoading ? 'animate-spin' : ''}`} />
