@@ -95,6 +95,41 @@ export async function mcpDescribeModule(
   return res.json();
 }
 
+export async function mcpRecommendDiagrams(
+  repoUrl: string,
+  providerInfo?: { name: string; model?: string; apiKey?: string; baseUrl?: string }
+): Promise<{ recommended: string }> {
+  const res = await fetch(`${BASE_URL}/api/mcp/tools/diagram/recommend?repoUrl=${encodeURIComponent(repoUrl)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ provider: providerInfo }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`MCP diagram recommend failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function mcpGenerateDiagram(
+  repoUrl: string,
+  diagramType: string,
+  providerInfo?: { name: string; model?: string; apiKey?: string; baseUrl?: string }
+): Promise<{ graph: any }> {
+  const res = await fetch(`${BASE_URL}/api/mcp/tools/diagram/generate?repoUrl=${encodeURIComponent(repoUrl)}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ diagramType, provider: providerInfo }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`MCP diagram generate failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export async function mcpGetDeps(repoUrl: string, filePath?: string): Promise<any> {
   const res = await fetch(`${BASE_URL}/api/mcp/tools/deps?repoUrl=${encodeURIComponent(repoUrl)}`, {
     method: 'POST',

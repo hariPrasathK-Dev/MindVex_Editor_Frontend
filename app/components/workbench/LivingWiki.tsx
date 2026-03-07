@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@nanostores/react';
-import { mcpGetWiki, mcpDescribeModule } from '~/lib/mcp/mcpClient';
+import { mcpGetWiki, mcpDescribeModule, mcpRecommendDiagrams, mcpGenerateDiagram } from '~/lib/mcp/mcpClient';
 import { repositoryHistoryStore } from '~/lib/stores/repositoryHistory';
 import { providersStore } from '~/lib/stores/settings';
 import { Button } from '~/components/ui/Button';
@@ -32,6 +32,7 @@ import {
   X,
   Info,
   LayoutDashboard,
+  Play
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ForceGraph2D from 'react-force-graph-2d';
@@ -54,6 +55,12 @@ interface TreeNode {
 
 // ─── Tab Registry ─────────────────────────────────────────────────────────────
 
+const DIAGRAM_OPTIONS = [
+  "System Architecture Diagram", "Component Diagram", "Module Dependency Graph",
+  "Function Call Graph", "Sequence Diagram", "API Flow Diagram",
+  "User Flow Diagram", "Data Flow Diagram", "Database ER Diagram", "Deployment Diagram"
+];
+
 const KNOWN_TABS: TabConfig[] = [
   { key: '__dashboard__', label: 'Dashboard', icon: <LayoutDashboard className="h-3.5 w-3.5" />, group: 'overview' },
   { key: 'README.md', label: 'README', icon: <BookOpen className="h-3.5 w-3.5" />, group: 'docs' },
@@ -69,6 +76,12 @@ const KNOWN_TABS: TabConfig[] = [
     icon: <Share2 className="h-3.5 w-3.5" />,
     group: 'data',
   },
+  ...DIAGRAM_OPTIONS.map(opt => ({
+    key: opt.replace(/\s+/g, '-').toLowerCase() + '-graph.json',
+    label: opt,
+    icon: <Share2 className="h-3.5 w-3.5" />,
+    group: 'diagrams'
+  })),
   { key: 'tree.txt', label: 'Tree', icon: <GitBranch className="h-3.5 w-3.5" />, group: 'structure' },
   { key: 'tree.json', label: 'Tree Visual', icon: <Share2 className="h-3.5 w-3.5" />, group: 'structure' },
 ];
@@ -76,6 +89,7 @@ const KNOWN_TABS: TabConfig[] = [
 const GROUP_LABELS: Record<string, string> = {
   overview: 'Overview',
   docs: 'Documentation',
+  diagrams: 'Generated Diagrams',
   data: 'Data Files',
   structure: 'Structure',
 };
@@ -106,6 +120,114 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
   'tree.json': 'Interactive visual file tree',
 };
 
+DIAGRAM_OPTIONS.forEach(opt => {
+  const key = opt.replace(/\s+/g, '-').toLowerCase() + '-graph.json';
+  FILE_ICONS[key] = <Share2 className="h-4 w-4 text-emerald-400" />;
+  FILE_DESCRIPTIONS[key] = `Interactive visualization for ${opt}`;
+});
+
+// ─── Diagram Generator Component ──────────────────────────────────────────────
+
+function DiagramGeneratorPanel({
+  repoUrl,
+  providerInfo,
+  onDiagramGenerated,
+}: {
+  repoUrl: string;
+  providerInfo: any;
+  onDiagramGenerated: (dType: string, content: string) => void;
+}) {
+  const [loadingContext, setLoadingContext] = useState(false);
+  const [recommended, setRecommended] = useState<string[]>([]);
+  const [generating, setGenerating] = useState<string | null>(null);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoadingContext(true);
+      const res = await mcpRecommendDiagrams(repoUrl, providerInfo);
+      if (res.recommended) {
+        let parsed = JSON.parse(res.recommended);
+        if (!Array.isArray(parsed) && parsed.recommended) {
+          parsed = parsed.recommended;
+        }
+        setRecommended(Array.isArray(parsed) ? parsed : []);
+      }
+    } catch (e) {
+      toast.error('Failed to get recommendations. Ensure backend AI providers are configured.');
+    } finally {
+      setLoadingContext(false);
+    }
+  };
+
+  const handleGenerate = async (dType: string) => {
+    try {
+      setGenerating(dType);
+      const res = await mcpGenerateDiagram(repoUrl, dType, providerInfo);
+      const fileName = dType.replace(/\s+/g, '-').toLowerCase() + '-graph.json';
+      onDiagramGenerated(fileName, JSON.stringify(res.graph, null, 2));
+    } catch (e: any) {
+      toast.error(`Failed to generate ${dType}: ${e.message}`);
+    } finally {
+      setGenerating(null);
+    }
+  };
+
+  return (
+    <div className="mt-8 bg-[#0c0c0c] border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full -ml-32 -mt-32 pointer-events-none" />
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div>
+          <h3 className="text-sm font-bold text-white mb-1">Architecture Diagram Generator</h3>
+          <p className="text-xs text-gray-400">Select diagrams to build or let the AI recommend suitable ones.</p>
+        </div>
+        <button
+          onClick={fetchRecommendations}
+          disabled={loadingContext}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+        >
+          {loadingContext ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          Recommend
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 relative z-10">
+        {DIAGRAM_OPTIONS.map((opt) => {
+          const isRec = recommended.includes(opt);
+          const isGen = generating === opt;
+          return (
+            <div
+              key={opt}
+              className={`p-4 rounded-xl border flex flex-col items-start gap-3 transition-all ${isRec ? 'bg-emerald-500/[0.03] border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
+            >
+              <div className="flex items-start justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Share2 className={`h-4 w-4 ${isRec ? 'text-emerald-400' : 'text-gray-500'}`} />
+                  <span className={`text-[11px] font-bold ${isRec ? 'text-emerald-300' : 'text-gray-300'}`}>
+                    {opt}
+                  </span>
+                </div>
+              </div>
+              {isRec && (
+                <span className="text-[9px] uppercase tracking-widest text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full z-10">
+                  Recommended
+                </span>
+              )}
+              <button
+                onClick={() => handleGenerate(opt)}
+                disabled={isGen || loadingContext}
+                className="mt-auto w-full py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+              >
+                {isGen ? <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" /> : <Play className="h-3 w-3" />}
+                {isGen ? 'Generating...' : 'Generate'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Dashboard View ───────────────────────────────────────────────────────────
 
 function DashboardView({
@@ -113,11 +235,15 @@ function DashboardView({
   onNavigate,
   repoUrl,
   providerInfo,
+  providerInfoObj,
+  onDiagramGenerated,
 }: {
   docFiles: DocFiles;
   onNavigate: (key: string) => void;
   repoUrl: string;
   providerInfo: string;
+  providerInfoObj: any;
+  onDiagramGenerated: (dType: string, content: string) => void;
 }) {
   const fileKeys = Object.keys(docFiles);
   const totalChars = Object.values(docFiles).reduce((a, v) => a + v.length, 0);
@@ -259,6 +385,12 @@ function DashboardView({
         {renderFileGrid(jsonDocs, 'JSON Data Files', 'Structured data and metadata files')}
         {renderFileGrid(otherDocs, 'Other Files', 'Additional documentation files')}
       </div>
+      {/* Diagram Generator */}
+      <DiagramGeneratorPanel
+        repoUrl={repoUrl}
+        providerInfo={providerInfoObj}
+        onDiagramGenerated={onDiagramGenerated}
+      />
     </div>
   );
 }
@@ -659,9 +791,8 @@ function TreeVisualizer({ content }: { content: string }) {
       <div className={depth > 0 ? 'ml-4' : ''}>
         <div
           onClick={() => isDir && toggle(id)}
-          className={`flex items-center gap-2 py-1 px-2 rounded-lg transition-colors ${
-            isDir ? 'cursor-pointer hover:bg-white/5 text-gray-300' : 'text-gray-500'
-          }`}
+          className={`flex items-center gap-2 py-1 px-2 rounded-lg transition-colors ${isDir ? 'cursor-pointer hover:bg-white/5 text-gray-300' : 'text-gray-500'
+            }`}
         >
           {isDir ? (
             isExp ? (
@@ -709,20 +840,26 @@ function ArchitectureVisualizer({ content }: { content: string }) {
   let data: { nodes: any[]; links: any[] } = { nodes: [], links: [] };
   try {
     const raw = JSON.parse(content);
-    // Handle different possible formats
-    if (raw.graph) {
-      // Format: { graph: { nodes: [], edges/links: [] } }
-      data.nodes = Array.isArray(raw.graph.nodes) ? raw.graph.nodes : [];
-      data.links = Array.isArray(raw.graph.links)
-        ? raw.graph.links
-        : Array.isArray(raw.graph.edges)
-          ? raw.graph.edges
-          : [];
-    } else if (raw.nodes) {
-      // Format: { nodes: [], edges/links: [] }
-      data.nodes = Array.isArray(raw.nodes) ? raw.nodes : [];
-      data.links = Array.isArray(raw.links) ? raw.links : Array.isArray(raw.edges) ? raw.edges : [];
-    }
+
+    // Parse Cytoscape or generic format
+    const rawNodes = raw.graph?.nodes || raw.nodes || [];
+    const rawEdges = raw.graph?.links || raw.graph?.edges || raw.links || raw.edges || [];
+
+    data.nodes = Array.isArray(rawNodes) ? rawNodes.map((n: any) => ({
+      id: n?.data?.id || n?.id,
+      label: n?.data?.label || n?.label,
+      type: n?.data?.type || n?.type || 'module',
+      ...n?.data,
+      ...n,
+    })) : [];
+
+    data.links = Array.isArray(rawEdges) ? rawEdges.map((e: any) => ({
+      source: e?.data?.source || e?.source,
+      target: e?.data?.target || e?.target,
+      label: e?.data?.relation || e?.data?.label || e?.relation || e?.label,
+      ...e?.data,
+      ...e,
+    })) : [];
   } catch (e) {
     console.error('[ArchitectureVisualizer] Failed to parse JSON:', e);
   }
@@ -743,16 +880,110 @@ function ArchitectureVisualizer({ content }: { content: string }) {
           ref={fgRef}
           graphData={data}
           nodeLabel="label"
-          nodeColor={(n) =>
-            (n as any).type === 'module' ? '#10b981' : (n as any).type === 'component' ? '#3b82f6' : '#6b7280'
-          }
-          linkColor={() => 'rgba(255, 255, 255, 0.08)'}
-          linkDirectionalArrowLength={3.5}
+          nodeColor={(n: any) => {
+            const colors: Record<string, string> = {
+              ui: '#ec4899', service: '#3b82f6', api: '#8b5cf6',
+              database: '#f59e0b', module: '#10b981', function: '#6366f1',
+              external: '#ef4444', component: '#14b8a6', default: '#6b7280'
+            };
+            return colors[n.type?.toLowerCase()] || colors.default;
+          }}
+          nodeCanvasObject={(node: any, ctx, globalScale) => {
+            const label = node.label || node.id;
+            const fontSize = Math.max(12 / globalScale, 2);
+            ctx.font = `${fontSize}px Inter, sans-serif`;
+
+            const colors: Record<string, string> = {
+              ui: '#ec4899', service: '#3b82f6', api: '#8b5cf6',
+              database: '#f59e0b', module: '#10b981', function: '#6366f1',
+              external: '#ef4444', component: '#14b8a6', default: '#6b7280'
+            };
+            const color = colors[node.type?.toLowerCase()] || colors.default;
+
+            const radius = 6;
+
+            // Draw circle
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Draw border
+            ctx.lineWidth = 1.5 / globalScale;
+            ctx.strokeStyle = '#ffffff55';
+            ctx.stroke();
+
+            // Draw text
+            if (globalScale >= 0.8) {
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'top';
+
+              // Text background for readability
+              const textWidth = ctx.measureText(label).width;
+              const bgHeight = fontSize + 2 / globalScale;
+              const textY = node.y + radius + 4 / globalScale;
+
+              ctx.fillStyle = 'rgba(8, 8, 8, 0.75)';
+              ctx.fillRect(node.x - textWidth / 2 - 2 / globalScale, textY - 1 / globalScale, textWidth + 4 / globalScale, bgHeight);
+
+              // Text itself
+              ctx.fillStyle = '#e5e7eb';
+              ctx.fillText(label, node.x, textY);
+            }
+          }}
+          linkColor={() => 'rgba(255, 255, 255, 0.15)'}
+          linkWidth={1.5}
+          linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={1}
+          linkCanvasObjectMode={() => 'after'}
+          linkCanvasObject={(link: any, ctx, globalScale) => {
+            const label = link.label;
+            if (!label || globalScale < 1.2) return;
+
+            const start = link.source;
+            const end = link.target;
+
+            // ignore unbound links
+            if (typeof start !== 'object' || typeof end !== 'object') return;
+
+            // calculate label positioning
+            const textPos = {
+              x: start.x + (end.x - start.x) / 2,
+              y: start.y + (end.y - start.y) / 2
+            };
+
+            const relLink = { x: end.x - start.x, y: end.y - start.y };
+            let textAngle = Math.atan2(relLink.y, relLink.x);
+            // maintain label vertical orientation for legibility
+            if (textAngle > Math.PI / 2) textAngle = -(Math.PI - textAngle);
+            if (textAngle < -Math.PI / 2) textAngle = -(-Math.PI - textAngle);
+
+            const fontSize = Math.max(10 / globalScale, 2);
+            ctx.font = `${fontSize}px Inter, sans-serif`;
+
+            ctx.save();
+            ctx.translate(textPos.x, textPos.y);
+            ctx.rotate(textAngle);
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Readability background
+            const textWidth = ctx.measureText(label).width;
+            const bgHeight = fontSize + 2 / globalScale;
+            ctx.fillStyle = 'rgba(8, 8, 8, 0.85)';
+            ctx.fillRect(-textWidth / 2 - 2 / globalScale, -bgHeight / 2 - 4 / globalScale, textWidth + 4 / globalScale, bgHeight);
+
+            // Text
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fillText(label, 0, -4 / globalScale);
+            ctx.restore();
+          }}
           nodeRelSize={6}
           backgroundColor="#080808"
           width={800}
           height={500}
+          d3VelocityDecay={0.3}
         />
       ) : (
         <div className="h-full w-full flex flex-col items-center justify-center text-gray-700 gap-4">
@@ -824,7 +1055,7 @@ function FileContent({
 }) {
   if (filename === 'api-descriptions.json') return <ApiExplorer content={content} />;
   if (filename === 'doc_snapshot.json') return <SnapshotDashboard content={content} />;
-  if (filename === 'architecture-graph.json') return <ArchitectureVisualizer content={content} />;
+  if (filename === 'architecture-graph.json' || filename.endsWith('-graph.json')) return <ArchitectureVisualizer content={content} />;
   if (filename === 'tree.json') return <TreeVisualizer content={content} />;
   if (filename === 'tree.txt')
     return (
@@ -1081,6 +1312,16 @@ export function LivingWiki() {
                       onNavigate={setActiveTab}
                       repoUrl={repoUrl}
                       providerInfo={providerLabel}
+                      providerInfoObj={getProvider()}
+                      onDiagramGenerated={(fileName, content) => {
+                        setDocFiles((prev) => {
+                          const newFiles = { ...prev, [fileName]: content };
+                          try { sessionStorage.setItem('livingwiki:' + repoUrl, JSON.stringify(newFiles)); } catch { /* ignore */ }
+                          return newFiles;
+                        });
+                        setActiveTab(fileName);
+                        toast.success(`Generated ${fileName}`);
+                      }}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-[500px] text-center max-w-md mx-auto">
