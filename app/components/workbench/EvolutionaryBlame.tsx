@@ -5,7 +5,7 @@
  * and parser-only vs LLM-enhanced modes.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '@nanostores/react';
 import {
   getBlame,
@@ -41,6 +41,11 @@ import {
   AlertTriangle,
   Users,
   GitCommit,
+  ChevronDown,
+  File,
+  Folder,
+  FolderOpen,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Line } from 'react-chartjs-2';
@@ -54,12 +59,131 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import * as Popover from '@radix-ui/react-popover';
+import { workbenchStore } from '~/lib/stores/workbench';
+import type { FileMap } from '~/lib/stores/files';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 interface Props {
   filePath?: string;
+}
+
+interface FileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  children?: FileNode[];
+}
+
+// Build file tree from FileMap
+function buildFileTree(files: FileMap): FileNode[] {
+  const root: FileNode[] = [];
+  const folderMap = new Map<string, FileNode>();
+
+  // Sort files by path and strip /home/project prefix
+  const sortedPaths = Object.keys(files)
+    .filter((path) => files[path]?.type === 'file')
+    .map((path) => path.replace(/^\/home\/project\/?/, ''))
+    .filter((path) => path.length > 0)
+    .sort();
+
+  for (const filePath of sortedPaths) {
+    const parts = filePath.split('/').filter(Boolean);
+    let currentLevel = root;
+    let currentPath = '';
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      const isFile = i === parts.length - 1;
+
+      if (isFile) {
+        // Add file node
+        currentLevel.push({
+          name: part,
+          path: filePath,
+          type: 'file',
+        });
+      } else {
+        // Add or find folder node
+        let folderNode = folderMap.get(currentPath);
+
+        if (!folderNode) {
+          folderNode = {
+            name: part,
+            path: currentPath,
+            type: 'folder',
+            children: [],
+          };
+          folderMap.set(currentPath, folderNode);
+          currentLevel.push(folderNode);
+        }
+
+        currentLevel = folderNode.children!;
+      }
+    }
+  }
+
+  return root;
+}
+
+// File tree node component
+function FileTreeNode({
+  node,
+  onFileSelect,
+  expandedFolders,
+  onToggleFolder,
+}: {
+  node: FileNode;
+  onFileSelect: (path: string) => void;
+  expandedFolders: Set<string>;
+  onToggleFolder: (path: string) => void;
+}) {
+  const isExpanded = expandedFolders.has(node.path);
+
+  if (node.type === 'folder') {
+    return (
+      <div>
+        <button
+          onClick={() => onToggleFolder(node.path)}
+          className="flex items-center gap-1 px-2 py-1 hover:bg-white/5 rounded text-xs w-full text-left"
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3 text-gray-500" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-gray-500" />
+          )}
+          {isExpanded ? <FolderOpen className="h-3 w-3 text-blue-400" /> : <Folder className="h-3 w-3 text-blue-400" />}
+          <span className="text-gray-300">{node.name}</span>
+        </button>
+        {isExpanded && node.children && (
+          <div className="ml-4 border-l border-white/5">
+            {node.children.map((child) => (
+              <FileTreeNode
+                key={child.path}
+                node={child}
+                onFileSelect={onFileSelect}
+                expandedFolders={expandedFolders}
+                onToggleFolder={onToggleFolder}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onFileSelect(node.path)}
+      className="flex items-center gap-1 px-2 py-1 hover:bg-white/5 rounded text-xs w-full text-left"
+    >
+      <File className="h-3 w-3 text-gray-500 ml-4" />
+      <span className="text-gray-300">{node.name}</span>
+    </button>
+  );
 }
 
 export function EvolutionaryBlame({ filePath }: Props) {
@@ -70,6 +194,8 @@ export function EvolutionaryBlame({ filePath }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [inputPath, setInputPath] = useState(filePath || '');
   const [repoUrl, setRepoUrl] = useState('');
+  const [open, setOpen] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const parseMode = useStore(parseModeStore);
   const [llmAnalysis, setLlmAnalysis] = useState<LLMAnalysis | null>(null);
@@ -79,6 +205,12 @@ export function EvolutionaryBlame({ filePath }: Props) {
   const [isHotspot, setIsHotspot] = useState(false);
   const [hotspotData, setHotspotData] = useState<HotspotData | null>(null);
   const [clusterByCommit, setClusterByCommit] = useState(true); // Commit clustering toggle
+
+  // Get files from workbench store
+  const files = useStore(workbenchStore.files);
+
+  // Build file tree from FileMap
+  const fileTree = useMemo(() => buildFileTree(files), [files]);
 
   useEffect(() => {
     const recent = repositoryHistoryStore.getRecentRepositories(1);
@@ -137,6 +269,25 @@ export function EvolutionaryBlame({ filePath }: Props) {
       loadBlame(filePath);
     }
   }, [filePath, repoUrl]);
+
+  const handleFileSelect = (path: string) => {
+    // Strip /home/project prefix if present
+    const cleanPath = path.replace(/^\/home\/project\/?/, '');
+    setInputPath(cleanPath);
+    setOpen(false);
+  };
+
+  const toggleFolder = (path: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,16 +475,48 @@ export function EvolutionaryBlame({ filePath }: Props) {
           <ParseModeSelector compact />
         </div>
 
-        <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={inputPath}
-            onChange={(e) => setInputPath(e.target.value)}
-            placeholder="Enter file path (e.g., src/App.tsx)"
-            className="flex-1 bg-[#151515] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50"
-          />
+        <div className="flex gap-2 mb-4">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={inputPath}
+              onChange={(e) => setInputPath(e.target.value)}
+              placeholder="Enter file path or select from dropdown..."
+              className="w-full bg-[#151515] border border-white/10 rounded-lg px-3 py-2 pr-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50"
+            />
+            <Popover.Root open={open} onOpenChange={setOpen}>
+              <Popover.Trigger asChild>
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/5 rounded">
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+              </Popover.Trigger>
+
+              <Popover.Portal>
+                <Popover.Content
+                  className="bg-[#151515] border border-white/10 rounded-lg p-2 shadow-lg max-h-[400px] overflow-y-auto w-[500px] z-50"
+                  sideOffset={5}
+                >
+                  <div className="mb-2 px-2 py-1 text-xs text-gray-500 border-b border-white/5">
+                    Select file to analyze
+                  </div>
+                  <div className="max-h-[350px] overflow-y-auto">
+                    {fileTree.map((node) => (
+                      <FileTreeNode
+                        key={node.path}
+                        node={node}
+                        onFileSelect={handleFileSelect}
+                        expandedFolders={expandedFolders}
+                        onToggleFolder={toggleFolder}
+                      />
+                    ))}
+                  </div>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
+
           <Button
-            type="submit"
+            onClick={() => inputPath && loadBlame(inputPath)}
             disabled={loading || !inputPath}
             variant="outline"
             size="sm"
@@ -354,7 +537,7 @@ export function EvolutionaryBlame({ filePath }: Props) {
               AI Analysis
             </Button>
           )}
-        </form>
+        </div>
 
         {/* Legend & Stats */}
         <div className="flex items-center flex-wrap gap-y-2 gap-x-4 text-[10px] text-gray-500">
