@@ -39,6 +39,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import * as d3 from 'd3-force';
 
 // Dynamic imports for force graphs to avoid SSR issues
 import { ForceGraph2D, ForceGraph3D, SpriteText } from '~/components/ui/ForceGraph.client';
@@ -357,16 +358,17 @@ export function KnowledgeGraphPage({ onBack }: Props) {
   // Automatic fitting and centering
   useEffect(() => {
     if (graphRef.current) {
-      // Apply custom forces if the library supports it via d3Force
+      // Inject dynamic repulsion to allow nodes to breathe and break out of clustered square patterns
       if (typeof (graphRef.current as any).d3Force === 'function') {
-        (graphRef.current as any)
-          .d3Force('link')
-          ?.distance((link: any) => (viewMode === '2d' ? 100 : 150) / (link.strength || 1));
+        const d3Force = (graphRef.current as any).d3Force.bind(graphRef.current);
+        d3Force('charge')?.strength(-450).distanceMax(500);
+        d3Force('link')?.distance(90);
+        d3Force('collide', d3.forceCollide().radius(40));
       }
 
       // Zoom to fit after data changes
       setTimeout(() => {
-        if (viewMode === '2d' && graphRef.current?.zoomToFit) {
+        if (graphRef.current?.zoomToFit) {
           graphRef.current.zoomToFit(400, 100);
         }
       }, 500);
@@ -462,8 +464,9 @@ export function KnowledgeGraphPage({ onBack }: Props) {
             label: file.filePath.split('/').pop() || 'unknown',
             filePath: file.filePath,
             language: file.language,
-            complexity: file.metadata.complexity,
-            linesOfCode: file.metadata.linesOfCode,
+            complexity: file.metadata?.complexity || 1,
+            linesOfCode: file.metadata?.linesOfCode || 1,
+            type: 'module',
           },
         }));
 
@@ -1043,52 +1046,138 @@ export function KnowledgeGraphPage({ onBack }: Props) {
                 <ForceGraph2D
                   ref={graphRef}
                   graphData={forceGraphData}
-                  nodeLabel="name"
-                  nodeColor="color"
+                  dagMode="td"
+                  dagLevelDistance={100}
+                  nodeRelSize={14}
+                  nodeLabel={() => ""} // Disable default tooltip in favor of rich shapes
                   nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                    const label = node.name;
-                    const fontSize = 12 / globalScale;
-                    ctx.font = `${fontSize}px Sans-Serif`;
+                    const label = String(node.name || node.id || 'Unknown');
+                    const typeText = (node.type || 'module').toUpperCase();
 
+                    // Font sizing
+                    const fontSize = Math.max(12 / globalScale, 2.5);
+                    const typeFontSize = Math.max(8 / globalScale, 1.5);
+
+                    // Measure widths
+                    ctx.font = `600 ${fontSize}px Inter, sans-serif`;
                     const textWidth = ctx.measureText(label).width;
-                    const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2);
+                    ctx.font = `bold ${typeFontSize}px Inter, sans-serif`;
+                    const typeWidth = ctx.measureText(typeText).width;
 
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                    ctx.fillRect(
-                      node.x - bckgDimensions[0] / 2,
-                      node.y - bckgDimensions[1] / 2,
-                      bckgDimensions[0],
-                      bckgDimensions[1],
-                    );
+                    // Card dimensions
+                    const width = Math.max(textWidth, typeWidth) + (24 / globalScale);
+                    const height = 36 / globalScale;
 
+                    const x = node.x - width / 2;
+                    const y = node.y - height / 2;
+
+                    // Compute node colors dynamically
+                    const color = node.color || '#6b7280';
+                    const radius = 4 / globalScale;
+
+                    // Base shape (rounded rect)
+                    ctx.beginPath();
+                    ctx.moveTo(x + radius, y);
+                    ctx.lineTo(x + width - radius, y);
+                    ctx.arcTo(x + width, y, x + width, y + height, radius);
+                    ctx.lineTo(x + width, y + height - radius);
+                    ctx.arcTo(x + width, y + height, x, y + height, radius);
+                    ctx.lineTo(x + radius, y + height);
+                    ctx.arcTo(x, y + height, x, y, radius);
+                    ctx.lineTo(x, y + radius);
+                    ctx.arcTo(x, y, x + width, y, radius);
+                    ctx.closePath();
+
+                    ctx.fillStyle = '#111111';
+                    ctx.fill();
+
+                    // Border
+                    ctx.lineWidth = 1.2 / globalScale;
+                    ctx.strokeStyle = color;
+                    ctx.stroke();
+
+                    // Type Ribbon Header
+                    ctx.save();
+                    ctx.clip(); // Constrain to rounded outline
+                    ctx.fillStyle = color + '22'; // slight highlight tint
+                    ctx.fillRect(x, y, width, 14 / globalScale);
+                    ctx.restore();
+
+                    // Render type text
+                    ctx.font = `bold ${typeFontSize}px Inter, sans-serif`;
                     ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillStyle = node.color;
-                    ctx.fillText(label, node.x, node.y);
+                    ctx.textBaseline = 'top';
+                    ctx.fillStyle = color;
+                    ctx.fillText(typeText, node.x, y + (3 / globalScale));
 
-                    node.__bckgDimensions = bckgDimensions;
+                    // Render node label
+                    ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(label, node.x, node.y + (2 / globalScale));
+
+                    // Store bounds for pointer area hit tests
+                    node.__bckgDimensions = [width, height];
                   }}
                   nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
                     ctx.fillStyle = color;
-
                     const bckgDimensions = node.__bckgDimensions;
-                    bckgDimensions &&
+                    if (bckgDimensions) {
                       ctx.fillRect(
                         node.x - bckgDimensions[0] / 2,
                         node.y - bckgDimensions[1] / 2,
                         bckgDimensions[0],
-                        bckgDimensions[1],
+                        bckgDimensions[1]
                       );
+                    }
                   }}
-                  linkWidth={(link: any) => (link.strength || 1) * 0.5}
-                  linkDirectionalParticles={2}
-                  linkDirectionalParticleSpeed={0.005}
-                  linkDirectionalArrowLength={3}
+                  linkColor={() => 'rgba(255, 255, 255, 0.2)'}
+                  linkWidth={1.5}
+                  linkDirectionalArrowLength={5}
                   linkDirectionalArrowRelPos={1}
-                  linkCurvature={0.25}
+                  linkCanvasObjectMode={() => 'after'}
+                  linkCanvasObject={(link: any, ctx, globalScale) => {
+                    const label = link.label || link.type;
+                    if (!label || globalScale < 0.8) return;
+
+                    const start = link.source;
+                    const end = link.target;
+                    if (typeof start !== 'object' || typeof end !== 'object') return;
+
+                    const textPos = {
+                      x: start.x + (end.x - start.x) / 2,
+                      y: start.y + (end.y - start.y) / 2
+                    };
+
+                    const relLink = { x: end.x - start.x, y: end.y - start.y };
+                    let textAngle = Math.atan2(relLink.y, relLink.x);
+                    if (textAngle > Math.PI / 2) textAngle = -(Math.PI - textAngle);
+                    if (textAngle < -Math.PI / 2) textAngle = -(-Math.PI - textAngle);
+
+                    const fontSize = Math.max(9 / globalScale, 2);
+                    ctx.font = `500 ${fontSize}px Inter, sans-serif`;
+
+                    ctx.save();
+                    ctx.translate(textPos.x, textPos.y);
+                    ctx.rotate(textAngle);
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    const textWidth = ctx.measureText(label).width;
+                    const bgHeight = fontSize + 4 / globalScale;
+                    const padding = 4 / globalScale;
+
+                    ctx.fillStyle = 'rgba(8, 8, 8, 0.9)';
+                    ctx.beginPath();
+                    ctx.roundRect(-textWidth / 2 - padding, -bgHeight / 2 - padding / 2, textWidth + padding * 2, bgHeight, padding);
+                    ctx.fill();
+
+                    // Soft text if cycle
+                    ctx.fillStyle = link.color ? link.color : 'rgba(255, 255, 255, 0.7)';
+                    ctx.fillText(label, 0, 0);
+                    ctx.restore();
+                  }}
                   backgroundColor="#020617"
-                  linkColor={() => '#334155'}
-                  linkLabel="label"
+                  d3VelocityDecay={0.2}
                 />
               )
             }
