@@ -141,6 +141,7 @@ function DiagramGeneratorPanel({
   const [loadingContext, setLoadingContext] = useState(false);
   const [recommended, setRecommended] = useState<string[]>([]);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const fetchRecommendations = async () => {
     try {
@@ -173,57 +174,106 @@ function DiagramGeneratorPanel({
     }
   };
 
+  // Divide options purely by recommendation state
+  const recommendedOptions = DIAGRAM_OPTIONS.filter((opt) => recommended.includes(opt));
+  const otherOptions = DIAGRAM_OPTIONS.filter((opt) => !recommended.includes(opt));
+
+  // If we have recommended options, we default to hiding the rest unless explicitly asked to show
+  const displayOther = recommendedOptions.length === 0 || showAll;
+
+  const renderCard = (opt: string, isRec: boolean) => {
+    const isGen = generating === opt;
+    return (
+      <div
+        key={opt}
+        className={`p-4 rounded-xl border flex flex-col items-start gap-4 transition-all ${isRec ? 'bg-emerald-500/[0.04] border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.08)]' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
+      >
+        <div className="flex items-start justify-between w-full">
+          <div className="flex items-center gap-2">
+            <Share2 className={`h-4 w-4 ${isRec ? 'text-emerald-400' : 'text-gray-500'}`} />
+            <span className={`text-[11px] font-bold ${isRec ? 'text-emerald-300' : 'text-gray-300'}`}>
+              {opt}
+            </span>
+          </div>
+        </div>
+
+        {isRec && (
+          <span className="text-[9px] uppercase tracking-widest text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            Recommended
+          </span>
+        )}
+
+        <button
+          onClick={() => handleGenerate(opt)}
+          disabled={isGen || loadingContext}
+          className={`mt-auto w-full py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 transition-all flex justify-center items-center gap-2 ${isRec ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400' : 'bg-white/5 hover:bg-white/10 text-gray-300'}`}
+        >
+          {isGen ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+          {isGen ? 'Generating...' : 'Generate'}
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="mt-8 bg-[#0c0c0c] border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full -ml-32 -mt-32 pointer-events-none" />
-      <div className="flex items-center justify-between mb-6 relative z-10">
+    <div className="mt-8 bg-[#111111] border border-white/5 rounded-3xl p-6 lg:p-8 shadow-2xl relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-500/5 blur-[120px] rounded-full -ml-[250px] -mt-[250px] pointer-events-none" />
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
         <div>
-          <h3 className="text-sm font-bold text-white mb-1">Architecture Diagram Generator</h3>
-          <p className="text-xs text-gray-400">Select diagrams to build or let the AI recommend suitable ones.</p>
+          <h3 className="text-base font-bold text-white flex items-center gap-2 mb-1">
+            <Building2 className="h-4 w-4 text-emerald-500" />
+            Architecture Diagram Generator
+          </h3>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Let the AI analyze your codebase and recommend the most valuable topology diagrams.
+          </p>
         </div>
         <button
           onClick={fetchRecommendations}
           disabled={loadingContext}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+          className="flex items-center justify-center gap-2 px-6 h-10 bg-emerald-500 border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
         >
-          {loadingContext ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          Recommend
+          {loadingContext ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {loadingContext ? 'Analyzing Codebase...' : recommended.length > 0 ? 'Re-Analyze Codebase' : 'Recommend Diagrams'}
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 relative z-10">
-        {DIAGRAM_OPTIONS.map((opt) => {
-          const isRec = recommended.includes(opt);
-          const isGen = generating === opt;
-          return (
-            <div
-              key={opt}
-              className={`p-4 rounded-xl border flex flex-col items-start gap-3 transition-all ${isRec ? 'bg-emerald-500/[0.03] border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]' : 'bg-white/[0.02] border-white/5 hover:border-white/20'}`}
-            >
-              <div className="flex items-start justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Share2 className={`h-4 w-4 ${isRec ? 'text-emerald-400' : 'text-gray-500'}`} />
-                  <span className={`text-[11px] font-bold ${isRec ? 'text-emerald-300' : 'text-gray-300'}`}>
-                    {opt}
-                  </span>
-                </div>
-              </div>
-              {isRec && (
-                <span className="text-[9px] uppercase tracking-widest text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full z-10">
-                  Recommended
-                </span>
-              )}
-              <button
-                onClick={() => handleGenerate(opt)}
-                disabled={isGen || loadingContext}
-                className="mt-auto w-full py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 disabled:opacity-50 transition-all flex justify-center items-center gap-2"
-              >
-                {isGen ? <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" /> : <Play className="h-3 w-3" />}
-                {isGen ? 'Generating...' : 'Generate'}
-              </button>
+      <div className="relative z-10 space-y-8">
+        {recommendedOptions.length > 0 && (
+          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5">
+            <h4 className="text-[10px] font-bold text-emerald-500 mb-4 flex items-center gap-2 uppercase tracking-widest">
+              <Sparkles className="h-3 w-3" />
+              AI Recommended for this Project
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommendedOptions.map((opt) => renderCard(opt, true))}
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {(!displayOther && recommendedOptions.length > 0) && (
+          <div className="flex justify-center -mt-2">
+            <button
+              onClick={() => setShowAll(true)}
+              className="px-4 py-1.5 rounded-full border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] text-[10px] font-bold text-gray-400 transition-colors uppercase tracking-widest flex items-center gap-2"
+            >
+              <ChevronDown className="h-3 w-3" />
+              Show Extra Diagram Options ({otherOptions.length})
+            </button>
+          </div>
+        )}
+
+        {displayOther && (
+          <div>
+            <h4 className="text-[10px] font-bold text-gray-500 mb-4 uppercase tracking-widest pl-1">
+              {recommendedOptions.length > 0 ? 'Other Available Diagrams' : 'All Available Diagrams'}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {otherOptions.map((opt) => renderCard(opt, false))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
