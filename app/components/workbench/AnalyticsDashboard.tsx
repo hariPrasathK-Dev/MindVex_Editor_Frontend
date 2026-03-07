@@ -26,7 +26,25 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { Badge } from '~/components/ui/Badge';
-import { Brain, Zap, Info, RefreshCw, Download, Flame, TrendingUp, BarChart2 } from 'lucide-react';
+import {
+  Brain,
+  Zap,
+  Info,
+  RefreshCw,
+  Download,
+  Flame,
+  TrendingUp,
+  BarChart2,
+  Search,
+  Filter,
+  ArrowUpDown,
+  FileCode,
+  FileJson,
+  FileText,
+  AlertTriangle,
+  Activity,
+  GitCommit,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // ─── Inline SVG Chart Components ─────────────────────────────────────────────
@@ -114,6 +132,80 @@ function ChurnLineChart({ data }: { data: WeeklyChurn[] }) {
   );
 }
 
+// ─── Helper Functions ────────────────────────────────────────────────────────
+
+function getFileIcon(filePath: string) {
+  const ext = filePath.split('.').pop()?.toLowerCase();
+  const iconClass = 'h-4 w-4';
+
+  if (!ext) {
+    return <FileText className={iconClass} />;
+  }
+
+  if (['ts', 'tsx', 'js', 'jsx', 'py', 'java', 'go', 'rs'].includes(ext)) {
+    return <FileCode className={`${iconClass} text-blue-400`} />;
+  }
+
+  if (['json', 'yaml', 'yml', 'xml', 'toml'].includes(ext)) {
+    return <FileJson className={`${iconClass} text-yellow-400`} />;
+  }
+
+  return <FileText className={`${iconClass} text-gray-400`} />;
+}
+
+function getSeverityBadge(churnRate: number) {
+  if (churnRate >= 50) {
+    return (
+      <Badge variant="outline" className="border-red-500/50 text-red-400 text-[10px] px-1.5 py-0">
+        Critical
+      </Badge>
+    );
+  }
+
+  if (churnRate >= 30) {
+    return (
+      <Badge variant="outline" className="border-orange-500/50 text-orange-400 text-[10px] px-1.5 py-0">
+        High
+      </Badge>
+    );
+  }
+
+  if (churnRate >= 15) {
+    return (
+      <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-[10px] px-1.5 py-0">
+        Medium
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="border-green-500/50 text-green-400 text-[10px] px-1.5 py-0">
+      Low
+    </Badge>
+  );
+}
+
+function exportHotspotsToCSV(hotspots: HotspotResult[]) {
+  const headers = ['File Path', 'Avg Churn Rate (%)', 'Total Commits', 'Lines Added', 'Lines Deleted'];
+  const rows = hotspots.map((h) => [
+    h.filePath,
+    h.avgChurnRate.toFixed(2),
+    h.totalCommits,
+    h.totalLinesAdded,
+    h.totalLinesDeleted,
+  ]);
+
+  const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hotspots-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success('Hotspots exported to CSV');
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function AnalyticsDashboard() {
@@ -128,6 +220,11 @@ export function AnalyticsDashboard() {
   const parseMode = useStore(parseModeStore);
   const [llmAnalysis, setLlmAnalysis] = useState<LLMAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // UI enhancement states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'churn' | 'commits' | 'lines'>('churn');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     const recent = repositoryHistoryStore.getRecentRepositories(1);
@@ -242,20 +339,58 @@ export function AnalyticsDashboard() {
     }
   };
 
+  // Filter and sort hotspots
+  const filteredAndSortedHotspots = hotspots
+    .filter((h) => h.filePath.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === 'churn') {
+        comparison = a.avgChurnRate - b.avgChurnRate;
+      } else if (sortBy === 'commits') {
+        comparison = a.totalCommits - b.totalCommits;
+      } else if (sortBy === 'lines') {
+        comparison = a.totalLinesAdded + a.totalLinesDeleted - (b.totalLinesAdded + b.totalLinesDeleted);
+      }
+
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+
   const maxChurn = Math.max(...hotspots.map((h) => h.avgChurnRate), 1);
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-[#0a0a0a] text-white">
-      {/* Header */}
-      <div className="p-6 pb-0">
-        <div className="flex items-center justify-between mb-2">
+      {/* Enhanced Header */}
+      <div className="p-6 pb-4 border-b border-white/5 bg-gradient-to-b from-[#0a0a0a] to-transparent">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
-              📊 Code Analytics
-            </h1>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-lg border border-orange-500/30">
+                <BarChart2 className="h-6 w-6 text-orange-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 via-red-400 to-pink-500 bg-clip-text text-transparent">
+                  Code Analytics & Hotspots
+                </h1>
+                <p className="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                  <Activity className="h-3 w-3" />
+                  Real-time analysis powered by JGit mining
+                </p>
+              </div>
+            </div>
             <ParseModeStatus />
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={() => exportHotspotsToCSV(hotspots)}
+              disabled={hotspots.length === 0}
+              variant="outline"
+              size="sm"
+              className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              Export CSV
+            </Button>
             <ParseModeSelector compact />
             <Button
               onClick={handleTriggerMining}
@@ -272,39 +407,58 @@ export function AnalyticsDashboard() {
               ) : (
                 <>
                   <RefreshCw className="h-3 w-3 mr-1" />
-                  Mine Git History
+                  Mine History
                 </>
               )}
             </Button>
           </div>
         </div>
-        <p className="text-gray-400 text-sm mb-6">Hotspot detection and code churn analysis powered by JGit mining.</p>
       </div>
 
-      {/* Stats Row */}
+      {/* Enhanced Stats Row */}
       <div className="px-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-[#111] border-white/5 p-4">
-          <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-            <Flame className="h-3 w-3 text-red-400" /> Hotspot Files
+        <Card className="bg-gradient-to-br from-red-950/30 to-red-900/10 border-red-500/20 p-4 hover:border-red-500/40 transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-gray-400 flex items-center gap-1.5">
+              <Flame className="h-4 w-4 text-red-400 group-hover:animate-pulse" />
+              Hotspot Files
+            </div>
+            <AlertTriangle className="h-4 w-4 text-red-400/40" />
           </div>
-          <div className="text-2xl font-bold text-red-400">{hotspots.length}</div>
+          <div className="text-3xl font-bold text-red-400 mb-1">{hotspots.length}</div>
+          <div className="text-[10px] text-gray-500">Files requiring attention</div>
         </Card>
-        <Card className="bg-[#111] border-white/5 p-4">
-          <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-            <TrendingUp className="h-3 w-3 text-orange-400" /> Avg Churn Rate
+        
+        <Card className="bg-gradient-to-br from-orange-950/30 to-orange-900/10 border-orange-500/20 p-4 hover:border-orange-500/40 transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-gray-400 flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-orange-400 group-hover:animate-bounce" />
+              Avg Churn Rate
+            </div>
+            <Activity className="h-4 w-4 text-orange-400/40" />
           </div>
-          <div className="text-2xl font-bold text-orange-400">
+          <div className="text-3xl font-bold text-orange-400 mb-1">
             {hotspots.length > 0
               ? (hotspots.reduce((s, h) => s + h.avgChurnRate, 0) / hotspots.length).toFixed(1)
               : '0'}
-            %
+            <span className="text-lg">%</span>
           </div>
+          <div className="text-[10px] text-gray-500">Average code volatility</div>
         </Card>
-        <Card className="bg-[#111] border-white/5 p-4">
-          <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-            <BarChart2 className="h-3 w-3 text-blue-400" /> Total Commits
+        
+        <Card className="bg-gradient-to-br from-blue-950/30 to-blue-900/10 border-blue-500/20 p-4 hover:border-blue-500/40 transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-gray-400 flex items-center gap-1.5">
+              <GitCommit className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+              Total Commits
+            </div>
+            <BarChart2 className="h-4 w-4 text-blue-400/40" />
           </div>
-          <div className="text-2xl font-bold text-blue-400">{hotspots.reduce((s, h) => s + h.totalCommits, 0)}</div>
+          <div className="text-3xl font-bold text-blue-400 mb-1">{hotspots.reduce((s, h) => s + h.totalCommits, 0)}</div>
+          <div className="text-[10px] text-gray-500">Across all hotspot files</div>
+          </div>
+          <div className="text-3xl font-bold text-blue-400 mb-1">{hotspots.reduce((s, h) => s + h.totalCommits, 0)}</div>
+          <div className="text-[10px] text-gray-500">Across all hotspot files</div>
         </Card>
       </div>
 
@@ -318,9 +472,44 @@ export function AnalyticsDashboard() {
       <div className="px-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
         {/* Hotspot Heatmap */}
         <div className="bg-[#111] border border-white/5 rounded-xl p-5">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            🔥 Hotspot Files <span className="text-xs text-gray-500 font-normal">(sorted by churn)</span>
+          <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+            <Flame className="h-5 w-5 text-red-400" />
+            Hotspot Files
+            <Badge variant="outline" className="border-gray-500/30 text-gray-400 text-[10px]">
+              {filteredAndSortedHotspots.length}
+            </Badge>
           </h2>
+
+          {/* Search and Sort Controls */}
+          <div className="mb-4 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search files..."
+                className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'churn' | 'commits' | 'lines')}
+                className="flex-1 bg-[#0a0a0a] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500/50"
+              >
+                <option value="churn">Sort by Churn Rate</option>
+                <option value="commits">Sort by Commits</option>
+                <option value="lines">Sort by Lines Changed</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="px-2 py-1.5 bg-[#0a0a0a] border border-white/10 rounded-lg hover:border-orange-500/50 transition-colors"
+              >
+                <ArrowUpDown className={`h-3.5 w-3.5 ${sortOrder === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <div className="flex items-center justify-center h-48 text-gray-500">
@@ -329,11 +518,16 @@ export function AnalyticsDashboard() {
           ) : hotspots.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-500">
               <div className="text-4xl mb-3">📭</div>
-              <p className="text-sm">No hotspots found. Click "Mine Git History" to analyze commits.</p>
+              <p className="text-sm">No hotspots found. Click "Mine History" to analyze commits.</p>
+            </div>
+          ) : filteredAndSortedHotspots.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+              <Search className="h-8 w-8 mb-2 opacity-50" />
+              <p className="text-sm">No files match your search</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
-              {hotspots.map((h, i) => {
+              {filteredAndSortedHotspots.map((h, i) => {
                 const intensity = h.avgChurnRate / maxChurn;
                 const bgColor = `rgba(239, 68, 68, ${intensity * 0.25})`;
                 const borderColor = `rgba(239, 68, 68, ${intensity * 0.5})`;
@@ -342,16 +536,27 @@ export function AnalyticsDashboard() {
                   <button
                     key={i}
                     onClick={() => handleSelectFile(h.filePath)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.01] ${
-                      selectedFile === h.filePath ? 'ring-1 ring-orange-500' : ''
+                    className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.01] hover:shadow-lg ${
+                      selectedFile === h.filePath ? 'ring-2 ring-orange-500 shadow-orange-500/20' : ''
                     }`}
                     style={{ backgroundColor: bgColor, borderColor }}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-mono text-gray-200 truncate max-w-[70%]" title={h.filePath}>
-                        {h.filePath.split('/').pop()}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {getFileIcon(h.filePath)}
+                        <span className="text-sm font-mono text-gray-200 truncate" title={h.filePath}>
+                          {h.filePath.split('/').pop()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getSeverityBadge(h.avgChurnRate)}
+                        <span className="text-xs font-bold text-red-400">{h.avgChurnRate.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                      <span className="font-mono text-[10px] truncate max-w-[60%]" title={h.filePath}>
+                        {h.filePath}
                       </span>
-                      <span className="text-xs font-bold text-red-400">{h.avgChurnRate.toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>{h.totalCommits} commits</span>
