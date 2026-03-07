@@ -333,6 +333,52 @@ export function KnowledgeGraphPage({ onBack }: Props) {
     };
   }, [graphData, symbolGraphData, granularity, semanticResults, complexityFilter, showCycles]);
 
+  // Format data specifically for isolated AI view overlay
+  const aiForceGraphData = useMemo(() => {
+    if (!analysisResult) return { nodes: [], links: [] };
+    const data = { nodes: analysisResult.nodes, edges: analysisResult.edges };
+
+    const nodeMap = new Map();
+    data.nodes.forEach((n: any) => {
+      const id = n.data.id.trim();
+      let color = getLanguageColor(n.data.language);
+      let val = ((n.data as any).complexity || 1) + 8;
+      if (n.data.type === 'class') { color = '#F472B6'; val = 6; } else if (n.data.type === 'function') { color = '#60A5FA'; val = 4; }
+      nodeMap.set(id, { id, name: n.data.label, val, color, language: n.data.language, filePath: n.data.filePath, type: n.data.type || 'file' });
+    });
+
+    const links = data.edges.map((e: any) => {
+      let source = typeof e.data.source === 'string' ? e.data.source : (e.data.source as any).id;
+      let target = typeof e.data.target === 'string' ? e.data.target : (e.data.target as any).id;
+      return { source: source.trim(), target: target.trim(), label: (e.data as any).label || 'depends', strength: (e.data as any).strength || 1, type: (e.data as any).type };
+    }).filter((l: any) => nodeMap.has(l.source) && nodeMap.has(l.target));
+
+    let filteredNodes = Array.from(nodeMap.values());
+    let filteredLinks = links;
+
+    if (semanticResults.length > 0) {
+      const semanticSet = new Set(semanticResults);
+      filteredNodes = filteredNodes.filter((n) => semanticSet.has(n.id));
+      filteredLinks = filteredLinks.filter((l: any) => semanticSet.has(l.source) && semanticSet.has(l.target));
+    }
+
+    if (complexityFilter > 0) {
+      const complexSet = new Set(filteredNodes.filter((n) => ((n as any).val || 0) >= complexityFilter).map((n) => n.id));
+      filteredNodes = filteredNodes.filter((n) => complexSet.has(n.id));
+      filteredLinks = filteredLinks.filter((l: any) => complexSet.has(l.source) && complexSet.has(l.target));
+    }
+
+    if (showCycles) {
+      const cycleEdges = data.edges?.filter((e: any) => e.data.cycle) || [];
+      filteredLinks = filteredLinks.map((l: any) => {
+        const isCycle = cycleEdges.some((e: any) => e.data.source === l.source && e.data.target === l.target);
+        return { ...l, color: isCycle ? '#ef4444' : undefined, width: isCycle ? 2 : 1 };
+      });
+    }
+
+    return { nodes: filteredNodes, links: filteredLinks };
+  }, [analysisResult, semanticResults, complexityFilter, showCycles]);
+
   function getLanguageColor(lang: string = ''): string {
     const safeLang = lang || '';
     const colors: Record<string, string> = {
@@ -631,12 +677,15 @@ export function KnowledgeGraphPage({ onBack }: Props) {
       }
 
       // Update the graph cache with the new, AI-verified data
-      graphCache.set({
-        nodes: newNodes,
-        edges: newEdges,
-        cycles: [],
-        isFallback: false,
-      });
+      // Only overwrite the master layout if we aren't splitting the screen via AI overlay
+      if (parseMode.type !== 'llm-enhanced') {
+        graphCache.set({
+          nodes: newNodes,
+          edges: newEdges,
+          cycles: [],
+          isFallback: false,
+        });
+      }
 
       const result: AnalysisResult = {
         nodes: newNodes,
@@ -1043,97 +1092,202 @@ export function KnowledgeGraphPage({ onBack }: Props) {
         </Card>
       )}
 
-      {/* Graph Visualization */}
-      <div className="flex-1 min-h-0 border border-gray-700 rounded-xl bg-gray-950 overflow-hidden relative group">
-        <div className="absolute top-4 left-4 z-10 bg-gray-900/80 p-3 rounded-lg border border-gray-700 backdrop-blur opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <div className="text-xs text-gray-400">
-            Nodes: {forceGraphData.nodes.length} | Edges: {forceGraphData.links.length}
+      {/* Graph Visualization Dual Split System */}
+      <div className={`flex-1 min-h-0 flex ${parseMode.type === 'llm-enhanced' && analysisResult ? 'gap-4 overflow-x-auto min-w-0' : 'min-w-0'}`}>
+
+        {/* Graph 1 (Local AST Structure - Always Displays) */}
+        <div className="flex-1 min-w-[500px] border border-gray-700 rounded-xl bg-gray-950 overflow-hidden relative group">
+          <div className="absolute top-4 left-4 z-10 bg-gray-900/80 p-3 rounded-lg border border-gray-700 backdrop-blur opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {parseMode.type === 'llm-enhanced' && analysisResult && (
+              <div className="text-xs font-bold text-gray-300 mb-1">Local AST (SCIP Graph)</div>
+            )}
+            <div className="text-xs text-gray-400">
+              Nodes: {forceGraphData.nodes.length} | Edges: {forceGraphData.links.length}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {parseMode.type === 'llm-enhanced' && analysisResult ? 'Deterministic Logic Base' : `Mode: AST Parser`}
+            </div>
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            Mode: {parseMode.type === 'parser-only' ? 'Parser Only' : 'LLM Enhanced'}
-            {parseMode.model && ` (${parseMode.model})`}
-          </div>
-        </div>
 
-        <div className="w-full h-full min-h-[600px]">
-          <ClientOnly>
-            {() =>
-              viewMode === '3d' ? (
-                <ForceGraph3D
-                  ref={graphRef}
-                  graphData={forceGraphData}
-                  nodeLabel="name"
-                  nodeColor="color"
-                  nodeThreeObject={(node: any) => {
-                    const sprite = new SpriteText(node.name);
-                    sprite.color = node.color;
-                    sprite.textHeight = 8;
+          <div className="w-full h-full min-h-[600px]">
+            <ClientOnly>
+              {() =>
+                viewMode === '3d' ? (
+                  <ForceGraph3D
+                    ref={graphRef}
+                    graphData={forceGraphData}
+                    nodeLabel="name"
+                    nodeColor="color"
+                    nodeThreeObject={(node: any) => {
+                      const sprite = new SpriteText(node.name);
+                      sprite.color = '#ffffff';
+                      sprite.backgroundColor = node.color;
+                      sprite.padding = 4;
+                      sprite.borderRadius = 8;
+                      sprite.borderWidth = 1;
+                      sprite.borderColor = '#ffffff';
+                      sprite.textHeight = 6;
+                      return sprite;
+                    }}
+                    nodeThreeObjectExtend={false}
+                    linkWidth={1.5}
+                    linkDirectionalArrowLength={3.5}
+                    linkDirectionalArrowRelPos={1}
+                    linkCurvature={0.25}
+                    backgroundColor="#020617"
+                    linkColor={() => '#475569'}
+                    linkLabel="label"
+                  />
+                ) : (
+                  <ForceGraph2D
+                    ref={graphRef}
+                    graphData={forceGraphData}
+                    nodeLabel="name"
+                    nodeColor="color"
+                    nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+                      const label = node.name;
+                      const fontSize = 12 / globalScale;
+                      ctx.font = `${fontSize}px Sans-Serif`;
 
-                    return sprite;
-                  }}
-                  nodeThreeObjectExtend={true}
-                  linkDirectionalArrowLength={3.5}
-                  linkDirectionalArrowRelPos={1}
-                  linkCurvature={0.25}
-                  backgroundColor="#020617"
-                  linkColor={() => '#475569'}
-                  linkLabel="label"
-                />
-              ) : (
-                <ForceGraph2D
-                  ref={graphRef}
-                  graphData={forceGraphData}
-                  nodeLabel="name"
-                  nodeColor="color"
-                  nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                    const label = node.name;
-                    const fontSize = 12 / globalScale;
-                    ctx.font = `${fontSize}px Sans-Serif`;
+                      const textWidth = ctx.measureText(label).width;
+                      const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2);
 
-                    const textWidth = ctx.measureText(label).width;
-                    const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2);
-
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                    ctx.fillRect(
-                      node.x - bckgDimensions[0] / 2,
-                      node.y - bckgDimensions[1] / 2,
-                      bckgDimensions[0],
-                      bckgDimensions[1],
-                    );
-
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillStyle = node.color;
-                    ctx.fillText(label, node.x, node.y);
-
-                    node.__bckgDimensions = bckgDimensions;
-                  }}
-                  nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-                    ctx.fillStyle = color;
-
-                    const bckgDimensions = node.__bckgDimensions;
-                    bckgDimensions &&
+                      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
                       ctx.fillRect(
                         node.x - bckgDimensions[0] / 2,
                         node.y - bckgDimensions[1] / 2,
                         bckgDimensions[0],
                         bckgDimensions[1],
                       );
-                  }}
-                  linkWidth={(link: any) => (link.strength || 1) * 0.5}
-                  linkDirectionalParticles={2}
-                  linkDirectionalParticleSpeed={0.005}
-                  linkDirectionalArrowLength={3}
-                  linkDirectionalArrowRelPos={1}
-                  linkCurvature={0.25}
-                  backgroundColor="#020617"
-                  linkColor={() => '#334155'}
-                  linkLabel="label"
-                />
-              )
-            }
-          </ClientOnly>
+
+                      ctx.textAlign = 'center';
+                      ctx.textBaseline = 'middle';
+                      ctx.fillStyle = node.color;
+                      ctx.fillText(label, node.x, node.y);
+
+                      node.__bckgDimensions = bckgDimensions;
+                    }}
+                    nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
+                      ctx.fillStyle = color;
+
+                      const bckgDimensions = node.__bckgDimensions;
+                      bckgDimensions &&
+                        ctx.fillRect(
+                          node.x - bckgDimensions[0] / 2,
+                          node.y - bckgDimensions[1] / 2,
+                          bckgDimensions[0],
+                          bckgDimensions[1],
+                        );
+                    }}
+                    linkWidth={(link: any) => (link.strength || 1) * 0.5}
+                    linkDirectionalParticles={2}
+                    linkDirectionalParticleSpeed={0.005}
+                    linkDirectionalArrowLength={3}
+                    linkDirectionalArrowRelPos={1}
+                    linkCurvature={0.25}
+                    backgroundColor="#020617"
+                    linkColor={() => '#334155'}
+                    linkLabel="label"
+                  />
+                )
+              }
+            </ClientOnly>
+          </div>
         </div>
+
+        {/* Graph 2 (AI Enhanced Context View) */}
+        {parseMode.type === 'llm-enhanced' && analysisResult && (
+          <div className="flex-1 min-w-[500px] border border-emerald-500/30 rounded-xl bg-[#020617] overflow-hidden relative group shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+            <div className="absolute top-4 left-4 z-10 bg-emerald-950/80 p-3 rounded-lg border border-emerald-800/50 backdrop-blur opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <div className="text-xs font-bold text-emerald-400 mb-1">AI Enhancements Overlay</div>
+              <div className="text-xs text-emerald-200/70">
+                Nodes: {aiForceGraphData.nodes.length} | Edges: {aiForceGraphData.links.length}
+              </div>
+              <div className="text-xs text-emerald-500 mt-1">
+                Model: {parseMode.model || 'Auto'}
+              </div>
+            </div>
+
+            <div className="w-full h-full min-h-[600px]">
+              <ClientOnly>
+                {() =>
+                  viewMode === '3d' ? (
+                    <ForceGraph3D
+                      graphData={aiForceGraphData}
+                      nodeLabel="name"
+                      nodeColor="color"
+                      nodeThreeObject={(node: any) => {
+                        const sprite = new SpriteText(node.name);
+                        sprite.color = '#ffffff';
+                        sprite.backgroundColor = node.color;
+                        sprite.padding = 4;
+                        sprite.borderRadius = 8;
+                        sprite.borderWidth = 1;
+                        sprite.borderColor = '#ffffff';
+                        sprite.textHeight = 6;
+                        return sprite;
+                      }}
+                      nodeThreeObjectExtend={false}
+                      linkWidth={1.5}
+                      linkDirectionalArrowLength={3.5}
+                      linkDirectionalArrowRelPos={1}
+                      linkCurvature={0.25}
+                      backgroundColor="#020617"
+                      linkColor={() => '#10b981'}
+                      linkLabel="label"
+                    />
+                  ) : (
+                    <ForceGraph2D
+                      graphData={aiForceGraphData}
+                      nodeLabel="name"
+                      nodeColor="color"
+                      nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+                        const label = node.name;
+                        const fontSize = 12 / globalScale;
+                        ctx.font = `${fontSize}px Sans-Serif`;
+                        const textWidth = ctx.measureText(label).width;
+                        const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2);
+
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                        ctx.fillRect(
+                          node.x - bckgDimensions[0] / 2,
+                          node.y - bckgDimensions[1] / 2,
+                          bckgDimensions[0],
+                          bckgDimensions[1],
+                        );
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = node.color;
+                        ctx.fillText(label, node.x, node.y);
+                        node.__bckgDimensions = bckgDimensions;
+                      }}
+                      nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
+                        ctx.fillStyle = color;
+                        const bckgDimensions = node.__bckgDimensions;
+                        bckgDimensions &&
+                          ctx.fillRect(
+                            node.x - bckgDimensions[0] / 2,
+                            node.y - bckgDimensions[1] / 2,
+                            bckgDimensions[0],
+                            bckgDimensions[1],
+                          );
+                      }}
+                      linkWidth={(link: any) => (link.strength || 1) * 0.5}
+                      linkDirectionalParticles={2}
+                      linkDirectionalParticleSpeed={0.005}
+                      linkDirectionalArrowLength={3}
+                      linkDirectionalArrowRelPos={1}
+                      linkCurvature={0.25}
+                      backgroundColor="#020617"
+                      linkColor={() => '#10b981'}
+                      linkLabel="label"
+                    />
+                  )
+                }
+              </ClientOnly>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
