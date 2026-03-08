@@ -6,8 +6,10 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import ForceGraph2D, { ForceGraphMethods, NodeObject, LinkObject } from 'react-force-graph-2d';
-import { Client, StompConfig, IMessage } from '@stomp/stompjs';
+import type { ForceGraphMethods, NodeObject, LinkObject } from 'react-force-graph-2d';
+import ForceGraph2D from 'react-force-graph-2d';
+import { Client } from '@stomp/stompjs';
+import type { StompConfig, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
@@ -63,7 +65,7 @@ interface UpdateBuffer {
 }
 
 export function RealTimeGraphPage({ onBack, repoUrl }: Props) {
-  const graphRef = useRef<ForceGraphMethods>();
+  const graphRef = useRef<any>(null);
   const stompClientRef = useRef<Client | null>(null);
   const updateBufferRef = useRef<UpdateBuffer>({ nodes: [], links: [] });
   const mergeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -231,9 +233,9 @@ export function RealTimeGraphPage({ onBack, repoUrl }: Props) {
       if (buffer.nodes.length > 0 || buffer.links.length > 0) {
         setGraphData((prevData) => {
           // Merge nodes
-          const nodeMap = new Map(prevData.nodes.map((n) => [n.id, n]));
-          buffer.nodes.forEach((n) => nodeMap.set(n.id, n));
-          const mergedNodes = Array.from(nodeMap.values());
+          const mergedNodeMap = new Map(prevData.nodes.map((n) => [n.id, n]));
+          buffer.nodes.forEach((n) => mergedNodeMap.set(n.id, n));
+          const mergedNodes = Array.from(mergedNodeMap.values());
 
           // Merge links
           const linkSet = new Set(prevData.links.map((l) => `${l.source}-${l.target}`));
@@ -249,17 +251,17 @@ export function RealTimeGraphPage({ onBack, repoUrl }: Props) {
           // Clear buffer
           updateBufferRef.current = { nodes: [], links: [] };
 
+          setStats((prevCountStats) => ({
+            ...prevCountStats,
+            totalNodes: mergedNodeMap.size,
+            totalEdges: prevCountStats.totalEdges + buffer.links.length,
+          }));
+
           return {
             nodes: mergedNodes,
             links: [...prevData.links, ...newLinks],
           };
         });
-
-        setStats((prev) => ({
-          ...prev,
-          totalNodes: nodeMap.size,
-          totalEdges: prev.totalEdges + buffer.links.length,
-        }));
       }
     }, 100);
 
@@ -437,7 +439,6 @@ export function RealTimeGraphPage({ onBack, repoUrl }: Props) {
         </Button>
       </div>
 
-      {/* Graph Canvas */}
       <div className="flex-1 relative">
         <ForceGraph2D
           ref={graphRef}
