@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { repositoryHistoryStore } from '~/lib/stores/repositoryHistory';
+import { providersStore } from '~/lib/stores/settings';
+import { mcpChat } from '~/lib/mcp/mcpClient';
 import { Card } from '~/components/ui/Card';
 import { Badge } from '~/components/ui/Badge';
 import {
@@ -433,7 +435,7 @@ export function CodeHealthHeatmap() {
                                                             <Zap className="h-3 w-3 text-purple-400" /> AI Remediation Plan
                                                         </h5>
                                                         <p className="text-xs text-gray-300 leading-relaxed">{vuln.remediation}</p>
-                                                        <AIFixButton file={activeFileData.path} vulnId={vuln.id} />
+                                                        <AIFixButton file={activeFileData.path} vuln={vuln} repoUrl={repoUrl} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -490,29 +492,141 @@ export function CodeHealthHeatmap() {
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
-function AIFixButton({ file, vulnId }: { file: string; vulnId: string }) {
+function AIFixButton({ file, vuln, repoUrl }: { file: string; vuln: any; repoUrl: string }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isDone, setIsDone] = useState(false);
+    const [prUrl, setPrUrl] = useState('');
+    const filesMap = useStore(workbenchStore.files);
+    const providers = useStore(providersStore);
 
-    const handleFix = () => {
+    const handleFix = async () => {
         if (isDone) return;
         setIsGenerating(true);
 
-        // Simulate AI thinking and API request
-        setTimeout(() => {
+        try {
+            const rawFile: any = filesMap[file];
+            const fileContent = rawFile?.content || '';
+            if (!fileContent) throw new Error("File content not available locally.");
+            if (!repoUrl) throw new Error("No repository active.");
+
+            let providerInfo;
+            const providerValues = Object.values(providers);
+            if (providerValues.length > 0) {
+                const firstProvider = providerValues[0];
+                providerInfo = { name: firstProvider.name, apiKey: firstProvider.settings?.apiKey };
+            }
+
+            toast.info("AI generating secure code remediation...");
+            const prompt = `You are a strict security expert. Please fix the following vulnerability in the provided code. Return ONLY the fully corrected code without any markdown blocks, backticks, or explanations. Do not include \`\`\`typescript or \`\`\`. Just the raw code.
+
+Vulnerability: ${vuln.type} (${vuln.cwe})
+Remediation Strategy: ${vuln.remediation}
+
+File Path: ${file}
+
+CODE TO FIX:
+${fileContent}`;
+
+            const response = await mcpChat(repoUrl, prompt, [], providerInfo);
+
+            // Clean up markdown just in case
+            let fixedCode = response.reply.replace(/^```[a-z]*\n/i, '').replace(/\n```$/i, '').trim();
+
+            toast.info("Fix generated. Syncing with GitHub API...");
+
+            const urlObj = new URL(repoUrl);
+            let path = urlObj.pathname;
+            if (path.startsWith('/')) path = path.substring(1);
+            if (path.endsWith('.git')) path = path.substring(0, path.length - 4);
+
+            const ownerRepo = path;
+            const proxyBase = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/api/git-proxy/api.github.com/repos/${ownerRepo}`;
+
+            const getAuthHeader = (): Record<string, string> => {
+                const token = localStorage.getItem('auth_token');
+                return token ? { 'Authorization': `Bearer ${token}` } : {};
+            };
+
+            const getJsonHeader = (): Record<string, string> => {
+                return { ...getAuthHeader(), 'Content-Type': 'application/json' };
+            };
+
+            // 1. Get default branch
+            const repoRes = await fetch(proxyBase, { headers: getAuthHeader() });
+            if (!repoRes.ok) throw new Error("Failed connecting to valid GitHub repo. Is it set up correctly?");
+            const repoData: any = await repoRes.json();
+            const defaultBranch = repoData.default_branch || 'main';
+
+            // 2. Get default branch SHA
+            const refRes = await fetch(`${proxyBase}/git/refs/heads/${defaultBranch}`, { headers: getAuthHeader() });
+            const refData: any = await refRes.json();
+            const baseSha = refData.object.sha;
+
+            // 3. Create new branch
+            const newBranch = `code-nexus-security-${vuln.id.toLowerCase()}-${Date.now()}`;
+            await fetch(`${proxyBase}/git/refs`, {
+                method: 'POST',
+                headers: getJsonHeader(),
+                body: JSON.stringify({ ref: `refs/heads/${newBranch}`, sha: baseSha })
+            });
+
+            // 4. Get current file SHA
+            const fileRes = await fetch(`${proxyBase}/contents/${file}?ref=${defaultBranch}`, { headers: getAuthHeader() });
+            const fileData: any = await fileRes.json();
+            if (!fileData || !fileData.sha) throw new Error("Could not find file on GitHub remote.");
+            const fileSha = fileData.sha;
+
+            // 5. Update file
+            await fetch(`${proxyBase}/contents/${file}`, {
+                method: 'PUT',
+                headers: getJsonHeader(),
+                body: JSON.stringify({
+                    message: `fix: resolve ${vuln.type} (${vuln.cwe}) in ${file}`,
+                    content: btoa(unescape(encodeURIComponent(fixedCode))),
+                    sha: fileSha,
+                    branch: newBranch
+                })
+            });
+
+            // 6. Create PR
+            const prRes = await fetch(`${proxyBase}/pulls`, {
+                method: 'POST',
+                headers: getJsonHeader(),
+                body: JSON.stringify({
+                    title: `🛡️ Security Remediation: ${vuln.type} in ${file.split('/').pop()}`,
+                    body: `## Automated Security Fix Request\n\nThis Pull Request was generated automatically by **CodeNexus AI**.\n\n### Intelligence Report\n- **Vulnerability**: \`${vuln.type}\`\n- **CWE**: \`${vuln.cwe}\`\n- **Action Taken**: ${vuln.remediation}\n- **Target File**: \`${file}\`\n\n*Review the attached changes carefully to ensure stability before merging.*`,
+                    head: newBranch,
+                    base: defaultBranch
+                })
+            });
+            const prData: any = await prRes.json();
+
+            if (prData.html_url) {
+                setPrUrl(prData.html_url);
+                toast.success(`PR Built & Pushed: ${prData.html_url}`);
+                setIsDone(true);
+            } else {
+                throw new Error(prData.message || "Failed to create PR");
+            }
+
+        } catch (e: any) {
+            console.error(e);
+            toast.error("GitHub Generation Failed: " + e.message);
+        } finally {
             setIsGenerating(false);
-            setIsDone(true);
-            toast.success(`Automated PR generated for ${file.split('/').pop()} to fix ${vulnId}!`);
-        }, 2500);
+        }
     };
 
     if (isDone) {
         return (
             <button
-                disabled
-                className="mt-4 px-4 py-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold w-full flex items-center justify-center gap-2 cursor-default"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (prUrl) window.open(prUrl, '_blank', 'noopener,noreferrer');
+                }}
+                className="mt-4 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold w-full flex items-center justify-center gap-2 cursor-pointer transition-all shadow-[0_0_10px_rgba(16,185,129,0.15)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
             >
-                <ShieldCheck className="h-3.5 w-3.5" /> Fix PR Created
+                <ShieldCheck className="h-3.5 w-3.5" /> Open Fix Pull Request
             </button>
         );
     }
@@ -532,11 +646,11 @@ function AIFixButton({ file, vulnId }: { file: string; vulnId: string }) {
         >
             {isGenerating ? (
                 <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Analyzing Control Flow...
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Synthesizing AI Patch...
                 </>
             ) : (
                 <>
-                    <Zap className="h-3.5 w-3.5" /> Generate Automated Fix PR
+                    <Zap className="h-3.5 w-3.5" /> Initialize Git Fix Injection
                 </>
             )}
         </button>
