@@ -21,6 +21,7 @@ import { EvolutionaryBlame } from './EvolutionaryBlame';
 import { IntelligentChat } from './IntelligentChat';
 import { LivingWiki } from './LivingWiki';
 import { CodeHealthHeatmap } from './CodeHealthHeatmap';
+import { AICodeReasoning } from './tools/AICodeReasoning';
 
 interface QuickActionItem {
   id: string;
@@ -101,6 +102,13 @@ const quickActions: QuickActionItem[] = [
     icon: '🛡️',
     color: 'emerald',
   },
+  {
+    id: 'ai-code-reasoning',
+    title: 'AI Code Reasoning Engine',
+    description: 'Deep architectural intelligence: detects patterns, smells, and service boundaries',
+    icon: '🧠',
+    color: 'orange',
+  },
 ];
 
 export function QuickActions() {
@@ -175,6 +183,8 @@ export function QuickActions() {
         return <LivingWiki />;
       case 'code-health-heatmap':
         return <CodeHealthHeatmap />;
+      case 'ai-code-reasoning':
+        return <AICodeReasoning onBack={handleBackToMenu} />;
       default:
         return null;
     }

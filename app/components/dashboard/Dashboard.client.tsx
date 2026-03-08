@@ -432,6 +432,12 @@ export function Dashboard() {
           toolId="intelligent-chat"
         />
         <ToolCard
+          icon={<Brain className="w-6 h-6 text-orange-400" />}
+          title="AI Code Reasoning Engine"
+          desc="Deep architectural intelligence & pattern detection"
+          toolId="ai-code-reasoning"
+        />
+        <ToolCard
           icon={<BookOpen className="w-6 h-6 text-emerald-400" />}
           title="Living Wiki & Documentation"
           desc="AI-generated project docs"
