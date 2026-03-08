@@ -349,23 +349,23 @@ export function Dashboard() {
   return (
     <div className="p-6 space-y-8 overflow-auto h-full max-w-[1600px] mx-auto w-full transition-all duration-300">
       {/* AI Header Status */}
-      <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-6 rounded-2xl border border-purple-500/30 shadow-2xl backdrop-blur-md gap-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-r from-orange-600/20 to-orange-400/20 p-6 rounded-2xl border border-orange-500/30 shadow-2xl backdrop-blur-md gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-purple-500/30 flex items-center justify-center border border-purple-500/40 shadow-inner group">
-            <Brain className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform" />
+          <div className="w-14 h-14 rounded-2xl bg-orange-500/30 flex items-center justify-center border border-orange-500/40 shadow-inner group">
+            <Brain className="w-8 h-8 text-orange-400 group-hover:scale-110 transition-transform" />
           </div>
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight">Project Intelligence</h1>
             <p className="text-sm text-gray-400 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               Active Provider:{' '}
-              <span className="text-purple-400 font-bold uppercase tracking-wider">
+              <span className="text-orange-400 font-bold uppercase tracking-wider">
                 {activeProvider?.name || 'None Configured'}
               </span>
               {activeProvider?.settings.selectedModel && (
                 <>
                   <span className="text-gray-600">•</span>
-                  <Badge variant="outline" className="border-purple-500/30 text-purple-300 text-[10px]">
+                  <Badge variant="outline" className="border-orange-500/30 text-orange-300 text-[10px]">
                     {activeProvider.settings.selectedModel}
                   </Badge>
                 </>
@@ -375,7 +375,7 @@ export function Dashboard() {
         </div>
         <button
           onClick={() => setIsSettingsOpen(true)}
-          className="w-full sm:w-auto px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-black transition-all shadow-lg hover:shadow-purple-500/25 active:scale-95 uppercase tracking-widest"
+          className="w-full sm:w-auto px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-sm font-black transition-all shadow-lg hover:shadow-orange-500/25 active:scale-95 uppercase tracking-widest"
         >
           Configure AI
         </button>
