@@ -7,7 +7,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // Proxy API requests to the backend (bypass CORS and network issues)
   if (url.pathname.startsWith('/api/')) {
     // Get backend URL from environment variables
-    // - In production (Cloudflare Pages): uses VITE_BACKEND_URL from wrangler.toml
+    // - In production (Cloudflare Pages): MUST be set in Cloudflare dashboard under Settings > Environment variables
     // - In development: falls back to localhost:8080/api
     // IMPORTANT: Backend URL should end with /api (e.g., http://localhost:8080/api)
     const backendUrl = context.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080/api';
@@ -19,6 +19,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // Construct the full target URL using string concatenation
     // Example: http://localhost:8080/api + /users/me/github-token = http://localhost:8080/api/users/me/github-token
     const targetUrlString = backendUrl + apiPath + url.search;
+
+    // Debug logging
+    console.log('[API Proxy] Request:', url.pathname);
+    console.log('[API Proxy] Backend URL:', backendUrl);
+    console.log('[API Proxy] Target URL:', targetUrlString);
+    console.log('[API Proxy] Has env var:', !!context.env.VITE_BACKEND_URL);
 
     // Create a new request with the same method, headers, and body
     const proxyRequest = new Request(targetUrlString, {
