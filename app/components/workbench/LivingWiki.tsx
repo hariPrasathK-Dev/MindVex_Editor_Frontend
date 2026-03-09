@@ -517,6 +517,7 @@ function MarkdownRenderer({ content, onNavigate }: { content: string; onNavigate
         {copied ? <CheckCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         {copied ? 'Copied!' : 'Copy'}
       </button>
+      {/* PHASE 2: Use EnhancedMarkdownRenderer for GitHub-style rendering */}
       <EnhancedMarkdownRenderer content={content} />
     </div>
   );
