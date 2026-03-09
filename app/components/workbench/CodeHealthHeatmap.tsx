@@ -15,6 +15,7 @@ import {
     ChevronDown, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { extractRelativePath } from '~/utils/diff';
 
 // ─── Utilities & Mock Data Generators ───────────────────────────────────────
 
@@ -611,18 +612,19 @@ ${fileContent}`;
             if (!createBranchRes.ok) throw createBranchRes;
 
             // 4. Get current file SHA
-            const fileRes = await fetch(`${proxyBase}/contents/${file}?ref=${defaultBranch}`, { headers: getAuthHeader() });
+            const relativeGitHubPath = extractRelativePath(file);
+            const fileRes = await fetch(`${proxyBase}/contents/${relativeGitHubPath}?ref=${defaultBranch}`, { headers: getAuthHeader() });
             if (!fileRes.ok) throw fileRes;
             const fileData: any = await fileRes.json();
             if (!fileData || !fileData.sha) throw new Error("Could not find file on GitHub remote.");
             const fileSha = fileData.sha;
 
             // 5. Update file
-            const uploadRes = await fetch(`${proxyBase}/contents/${file}`, {
+            const uploadRes = await fetch(`${proxyBase}/contents/${relativeGitHubPath}`, {
                 method: 'PUT',
                 headers: getJsonHeader(),
                 body: JSON.stringify({
-                    message: `fix: resolve ${vuln.type} (${vuln.cwe}) in ${file}`,
+                    message: `fix: resolve ${vuln.type} (${vuln.cwe}) in ${relativeGitHubPath || file.split('/').pop()}`,
                     content: btoa(unescape(encodeURIComponent(fixedCode))),
                     sha: fileSha,
                     branch: newBranch
@@ -637,7 +639,7 @@ ${fileContent}`;
                 headers: getJsonHeader(),
                 body: JSON.stringify({
                     title: `🛡️ Security Remediation: ${vuln.type} in ${file.split('/').pop()}`,
-                    body: `## Automated Security Fix Request\n\nThis Pull Request was generated automatically by **CodeNexus AI**.\n\n### Intelligence Report\n- **Vulnerability**: \`${vuln.type}\`\n- **CWE**: \`${vuln.cwe}\`\n- **Action Taken**: ${vuln.remediation}\n- **Target File**: \`${file}\`\n\n*Review the attached changes carefully to ensure stability before merging.*`,
+                    body: `## Automated Security Fix Request\n\nThis Pull Request was generated automatically by **CodeNexus AI**.\n\n### Intelligence Report\n- **Vulnerability**: \`${vuln.type}\`\n- **CWE**: \`${vuln.cwe}\`\n- **Action Taken**: ${vuln.remediation}\n- **Target File**: \`${relativeGitHubPath}\`\n\n*Review the attached changes carefully to ensure stability before merging.*`,
                     head: newBranch,
                     base: defaultBranch
                 })
