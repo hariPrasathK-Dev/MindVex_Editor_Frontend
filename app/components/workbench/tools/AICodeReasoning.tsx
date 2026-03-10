@@ -69,12 +69,17 @@ export function AiCodeReasoning({ onBack }: { onBack?: () => void }) {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:8080/api/mcp/reasoning/analyze', {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${baseUrl}/api/mcp/reasoning/analyze`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+        },
         body: JSON.stringify({
           repoUrl: recentRepos[0].url,
-          providerConfig: {
+          provider: {
             name: activeProvider.name,
             model: activeModel,
             apiKey: activeProvider.settings.apiKey,
@@ -84,11 +89,24 @@ export function AiCodeReasoning({ onBack }: { onBack?: () => void }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch analysis.');
+        let err = `Failed to fetch analysis (${response.status})`;
+        try {
+          const body = (await response.json()) as { error?: string; message?: string };
+          err = body.error || body.message || err;
+        } catch {
+          // ignore parse errors and keep fallback message
+        }
+        throw new Error(err);
       }
 
-      const data = await response.json();
-      setResult(data as ReasoningResult);
+      const data = (await response.json()) as Partial<ReasoningResult>;
+      setResult({
+        detectedPatterns: data.detectedPatterns || [],
+        antiPatterns: data.antiPatterns || [],
+        refactoringSuggestions: data.refactoringSuggestions || [],
+        suggestedBoundaries: data.suggestedBoundaries || [],
+        filesScanned: data.filesScanned || 0,
+      });
       toast.success('Deep reasoning analysis complete!');
     } catch (e: any) {
       toast.error(e.message || 'Failed to analyze repository');
