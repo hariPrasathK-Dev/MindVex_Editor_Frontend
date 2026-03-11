@@ -8,7 +8,7 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import React from 'react';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'MindVex - Editor' }, { name: 'description', content: 'MindVex code editor workspace' }];
+  return [{ title: 'CodeNexus - Editor' }, { name: 'description', content: 'CodeNexus code editor workspace' }];
 };
 
 export const loader = () => json({});

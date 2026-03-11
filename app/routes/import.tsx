@@ -9,7 +9,10 @@ import { Workbench } from '~/components/workbench/Workbench.client';
 import { ProjectAwareLayout } from '~/components/ui/ProjectAwareLayout';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'MindVex - Import Folder' }, { name: 'description', content: 'Import folders into your workspace' }];
+  return [
+    { title: 'CodeNexus - Import Folder' },
+    { name: 'description', content: 'Import folders into your workspace' },
+  ];
 };
 
 export const loader = () => json({});

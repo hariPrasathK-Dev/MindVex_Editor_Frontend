@@ -9,7 +9,10 @@ import { Workbench } from '~/components/workbench/Workbench.client';
 import { HomeContent } from '~/components/home/HomeContent.client';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'MindVex' }, { name: 'description', content: 'MindVex: Your comprehensive development platform' }];
+  return [
+    { title: 'CodeNexus' },
+    { name: 'description', content: 'CodeNexus: Your comprehensive development platform' },
+  ];
 };
 
 export const loader = () => json({});

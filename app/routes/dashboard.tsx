@@ -7,7 +7,10 @@ import { BaseDashboard } from '~/components/dashboard/BaseDashboard';
 import { Menu } from '~/components/sidebar/Menu.client';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'MindVex - Dashboard' }, { name: 'description', content: 'MindVex dashboard with code overview' }];
+  return [
+    { title: 'CodeNexus - Dashboard' },
+    { name: 'description', content: 'CodeNexus dashboard with code overview' },
+  ];
 };
 
 export const loader = () => json({});

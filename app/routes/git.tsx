@@ -9,7 +9,7 @@ import { Workbench } from '~/components/workbench/Workbench.client';
 import { ProjectAwareLayout } from '~/components/ui/ProjectAwareLayout';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'MindVex - Git' }, { name: 'description', content: 'Clone repositories from GitHub' }];
+  return [{ title: 'CodeNexus - Git' }, { name: 'description', content: 'Clone repositories from GitHub' }];
 };
 
 export async function loader(args: LoaderFunctionArgs) {

@@ -64,8 +64,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         className="w-full max-w-[400px] bg-[#1a1a1a] border-[#2a2a2a] !rounded-xl !p-0 overflow-hidden shadow-2xl"
       >
         <div className="flex flex-col items-center text-center w-full px-8 py-10">
+          {/* Logo */}
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <img src="/icons/CodeNexus-logo.png" alt="CodeNexus Logo" className="w-16 h-16 object-contain" />
+            <span className="font-bold text-2xl text-white">CodeNexus</span>
+          </div>
+
           <h2 className="text-[26px] font-bold text-white mb-2 tracking-tight">Welcome Back</h2>
-          <p className="text-[13px] text-gray-400 mb-8 font-medium">Sign in to continue to MindVex</p>
+          <p className="text-[13px] text-gray-400 mb-8 font-medium">Sign in to continue to CodeNexus</p>
 
           {/* GitHub Button Container */}
           <div className="w-full mb-8">
