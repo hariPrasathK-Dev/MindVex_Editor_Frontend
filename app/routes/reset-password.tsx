@@ -30,6 +30,7 @@ export default function ResetPasswordPage() {
     if (!token) {
       setError('No reset token provided');
       setValidatingToken(false);
+
       return;
     }
 

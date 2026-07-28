@@ -6,7 +6,10 @@
 
   --cm-gutter-backgroundColor: var(--mindvex-elements-editor-gutter-backgroundColor, var(--cm-backgroundColor));
   --cm-gutter-textColor: var(--mindvex-elements-editor-gutter-textColor, var(--mindvex-elements-textSecondary));
-  --cm-gutter-activeLineTextColor: var(--mindvex-elements-editor-gutter-activeLineTextColor, var(--cm-gutter-textColor));
+  --cm-gutter-activeLineTextColor: var(
+    --mindvex-elements-editor-gutter-activeLineTextColor,
+    var(--cm-gutter-textColor)
+  );
 
   /* Fold Gutter */
 
@@ -41,7 +44,10 @@
 
   --cm-search-backgroundColor: var(--mindvex-elements-editor-search-backgroundColor, var(--cm-backgroundColor));
   --cm-search-textColor: var(--mindvex-elements-editor-search-textColor, var(--mindvex-elements-textSecondary));
-  --cm-search-closeButton-backgroundColor: var(--mindvex-elements-editor-search-closeButton-backgroundColor, transparent);
+  --cm-search-closeButton-backgroundColor: var(
+    --mindvex-elements-editor-search-closeButton-backgroundColor,
+    transparent
+  );
 
   --cm-search-closeButton-backgroundColorHover: var(
     --mindvex-elements-editor-search-closeButton-backgroundColorHover,
@@ -68,7 +74,10 @@
     var(--mindvex-elements-item-backgroundActive)
   );
 
-  --cm-search-button-textColor: var(--mindvex-elements-editor-search-button-textColor, var(--mindvex-elements-textSecondary));
+  --cm-search-button-textColor: var(
+    --mindvex-elements-editor-search-button-textColor,
+    var(--mindvex-elements-textSecondary)
+  );
 
   --cm-search-button-textColorHover: var(
     --mindvex-elements-editor-search-button-textColorHover,
@@ -84,8 +93,14 @@
   );
 
   --cm-search-input-backgroundColor: var(--mindvex-elements-editor-search-input-backgroundColor, transparent);
-  --cm-search-input-textColor: var(--mindvex-elements-editor-search-input-textColor, var(--mindvex-elements-textPrimary));
-  --cm-search-input-borderColor: var(--mindvex-elements-editor-search-input-borderColor, var(--mindvex-elements-borderColor));
+  --cm-search-input-textColor: var(
+    --mindvex-elements-editor-search-input-textColor,
+    var(--mindvex-elements-textPrimary)
+  );
+  --cm-search-input-borderColor: var(
+    --mindvex-elements-editor-search-input-borderColor,
+    var(--mindvex-elements-borderColor)
+  );
 
   --cm-search-input-borderColorFocused: var(
     --mindvex-elements-editor-search-input-borderColorFocused,
