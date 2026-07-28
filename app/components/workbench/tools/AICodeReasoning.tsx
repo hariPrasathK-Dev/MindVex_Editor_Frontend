@@ -90,6 +90,7 @@ export function AiCodeReasoning({ onBack }: { onBack?: () => void }) {
 
       if (!response.ok) {
         let err = `Failed to fetch analysis (${response.status})`;
+
         try {
           const body = (await response.json()) as { error?: string; message?: string };
           err = body.error || body.message || err;
